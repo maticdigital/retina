@@ -1,0 +1,85 @@
+# ============================================================================
+# Retina Analyst Rubric Template
+# ============================================================================
+#
+# Fill in scores for each sub-dimension per site. Each lens totals 20 points.
+# Leave a lens section commented out or remove it entirely to skip.
+#
+# Usage:
+#   retina https://primary.com -c https://comp1.com -r rubric.yaml -o report.json
+#
+# ============================================================================
+
+sites:
+
+  # ---- Primary Site ----
+  - url: "https://example.com"
+    analyst: "Your Name"
+
+    # BRAND & MESSAGING (20 points total)
+    brand_messaging:
+      scores:
+        brand_clarity_consistency: 0           # /5 - Logo, colors, typography consistent across pages
+        value_proposition_strength: 0          # /5 - Clear, compelling, differentiated value prop
+        content_quality_tone: 0                # /5 - Professional, error-free, on-brand writing
+        visual_identity_differentiation: 0     # /5 - Stands out from competitors visually
+      observations: |
+        Notes on brand presence, messaging clarity, tone of voice...
+      screenshots:
+        # - screenshots/example_brand_hero.png
+
+    # EXPERIENCE & DESIGN (20 points total)
+    experience_design:
+      scores:
+        visual_design_quality: 0               # /4 - Aesthetic quality, whitespace, visual hierarchy
+        navigation_information_architecture: 0 # /4 - Logical nav, findability, menu structure
+        interaction_design_micro_interactions: 0  # /4 - Hover states, transitions, feedback loops
+        responsiveness_cross_device: 0         # /4 - Mobile/tablet/desktop consistency
+        content_layout_readability: 0          # /4 - Scannable, good line length, contrast
+      observations: |
+        Notes on design quality, UX patterns, responsive behavior...
+      screenshots:
+        # - screenshots/example_mobile_view.png
+
+    # CONVERSION & STRATEGY (20 points total)
+    conversion_strategy:
+      scores:
+        cta_effectiveness: 0                   # /4 - Visible, compelling, clear action CTAs
+        user_journey_funnel_design: 0          # /4 - Logical progression, minimal friction
+        trust_signals_social_proof: 0          # /4 - Testimonials, logos, reviews, badges
+        lead_capture_form_design: 0            # /4 - Form length, field labels, progressive disclosure
+        strategic_positioning_vs_competitors: 0  # /4 - Unique angles, competitive awareness
+      observations: |
+        Notes on conversion paths, CTA placement, trust elements...
+      screenshots:
+        # - screenshots/example_cta_section.png
+
+  # ---- Competitor 1 (copy and fill for each competitor) ----
+  # - url: "https://competitor1.com"
+  #   analyst: "Your Name"
+  #   brand_messaging:
+  #     scores:
+  #       brand_clarity_consistency: 0
+  #       value_proposition_strength: 0
+  #       content_quality_tone: 0
+  #       visual_identity_differentiation: 0
+  #     observations: |
+  #       ...
+  #   experience_design:
+  #     scores:
+  #       visual_design_quality: 0
+  #       navigation_information_architecture: 0
+  #       interaction_design_micro_interactions: 0
+  #       responsiveness_cross_device: 0
+  #       content_layout_readability: 0
+  #     observations: |
+  #       ...
+  #   conversion_strategy:
+  #     scores:
+  #       cta_effectiveness: 0
+  #       user_journey_funnel_design: 0
+  #       trust_signals_social_proof: 0
+  #       lead_capture_form_design: 0
+  #       strategic_positioning_vs_competitors: 0
+  #     observations: |
+  #       ...
