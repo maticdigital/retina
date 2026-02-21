@@ -225,6 +225,17 @@ async def run(args: argparse.Namespace) -> None:
         else:
             print(output)
 
+        # Generate PDF if requested
+        if args.pdf:
+            print("📄 Generating PDF report...")
+            try:
+                from retina.report.renderer import render_pdf
+                pdf_path = render_pdf(analysis, args.pdf)
+                print(f"✅ PDF report saved to {pdf_path}")
+            except Exception as e:
+                logger.exception("PDF generation failed")
+                print(f"⚠️  PDF generation failed: {e}")
+
         # Print summary
         _print_summary(analysis, has_rubric=rubric is not None)
 
@@ -375,6 +386,10 @@ def main() -> None:
         "--no-screenshots",
         action="store_true",
         help="Skip automated screenshot capture",
+    )
+    parser.add_argument(
+        "--pdf",
+        help="Output file path for branded PDF report (e.g., report.pdf)",
     )
 
     args = parser.parse_args()

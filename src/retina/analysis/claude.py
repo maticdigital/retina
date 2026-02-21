@@ -192,15 +192,23 @@ class ClaudeAnalyzer:
             "no_brainer": "no_brainer",
             "no-brainer": "no_brainer",
             "nobrainer": "no_brainer",
+            "no_brainers": "no_brainer",
+            "no-brainers": "no_brainer",
             "growth_move": "growth_move",
             "growth-move": "growth_move",
             "growthmove": "growth_move",
+            "growth_moves": "growth_move",
+            "growth-moves": "growth_move",
             "quick_win": "quick_win",
             "quick-win": "quick_win",
             "quickwin": "quick_win",
+            "quick_wins": "quick_win",
+            "quick-wins": "quick_win",
             "transformational": "transformational",
             "transformational_initiative": "transformational",
             "transformational-initiative": "transformational",
+            "transformational_initiatives": "transformational",
+            "transformational-initiatives": "transformational",
         }
         raw_q = rec.get("quadrant", "").lower().strip()
         rec["quadrant"] = quadrant_map.get(raw_q, raw_q)
