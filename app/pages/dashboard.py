@@ -6,7 +6,7 @@ from datetime import datetime
 
 import streamlit as st
 
-from app.components.styles import metric_card, status_badge
+from app.components.styles import COLORS, metric_card, status_badge
 from app.services.projects import delete_project, duplicate_project, list_projects
 
 
@@ -82,7 +82,7 @@ def render() -> None:
     # Project list
     if not filtered:
         st.markdown(
-            "<div style='text-align: center; padding: 3rem; color: #8b92b3;'>"
+            f"<div style='text-align: center; padding: 3rem; color: {COLORS['text_muted']};'>"
             "<p style='font-size: 1.2rem;'>No projects found</p>"
             "<p>Create your first analysis to get started.</p>"
             "</div>",
@@ -119,16 +119,16 @@ def _render_project_row(project: dict, user_id: str, user_role: str) -> None:
         with c1:
             st.markdown(
                 f"**{project['name']}**<br/>"
-                f"<span style='color: #8b92b3; font-size: 0.8rem;'>{project['primary_url']}</span>",
+                f"<span style='color: {COLORS['text_muted']}; font-size: 0.8rem;'>{project['primary_url']}</span>",
                 unsafe_allow_html=True,
             )
         with c2:
-            st.markdown(f"<span style='color: #8b92b3; font-size: 0.85rem;'>{date_str}</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='color: {COLORS['text_muted']}; font-size: 0.85rem;'>{date_str}</span>", unsafe_allow_html=True)
         with c3:
             st.markdown(badge, unsafe_allow_html=True)
         with c4:
             st.markdown(
-                f"<span style='color: #8b92b3; font-size: 0.85rem;'>{comp_count} competitor{'s' if comp_count != 1 else ''}</span>",
+                f"<span style='color: {COLORS['text_muted']}; font-size: 0.85rem;'>{comp_count} competitor{'s' if comp_count != 1 else ''}</span>",
                 unsafe_allow_html=True,
             )
         with c5:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from app.components.styles import COLORS
 from app.services.auth import sign_in
 
 
@@ -17,12 +18,12 @@ def render() -> None:
 
         # Logo
         st.markdown(
-            "<div style='text-align: center; margin-bottom: 2rem;'>"
-            "<h1 style='font-size: 2rem; font-weight: 700; letter-spacing: 0.1em;'>"
-            "RETINA</h1>"
-            "<p style='color: #8b92b3; font-size: 0.9rem;'>"
-            "Website Intelligence Platform</p>"
-            "</div>",
+            f"<div style='text-align: center; margin-bottom: 2rem;'>"
+            f"<h1 style='font-size: 2rem; font-weight: 700; letter-spacing: 0.1em; "
+            f"color: {COLORS['text']};'>RETINA</h1>"
+            f"<p style='color: {COLORS['text_muted']}; font-size: 0.9rem;'>"
+            f"Website Intelligence Platform</p>"
+            f"</div>",
             unsafe_allow_html=True,
         )
 

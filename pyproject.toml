@@ -15,6 +15,7 @@ dependencies = [
     "jinja2>=3.1,<4.0",
     "supabase>=2.0",
     "streamlit>=1.30",
+    "plotly>=5.18",
 ]
 
 [project.optional-dependencies]

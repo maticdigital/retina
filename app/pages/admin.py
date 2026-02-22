@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from app.components.styles import metric_card
+from app.components.styles import COLORS, metric_card
 from app.services.auth import (
     deactivate_user,
     list_users,
@@ -26,7 +26,7 @@ def render() -> None:
 
     st.markdown("### Admin Panel")
     st.markdown(
-        "<p style='color: #8b92b3;'>Manage users and view system-wide data.</p>",
+        f"<p style='color: {COLORS['text_muted']};'>Manage users and view system-wide data.</p>",
         unsafe_allow_html=True,
     )
 
@@ -76,13 +76,13 @@ def _render_user_list(current_user: dict) -> None:
                 status_dot = "🟢" if is_active else "🔴"
                 st.markdown(
                     f"{status_dot} **{name_display}**<br/>"
-                    f"<span style='color: #8b92b3; font-size: 0.8rem;'>{u.get('email', '')}</span>",
+                    f"<span style='color: {COLORS['text_muted']}; font-size: 0.8rem;'>{u.get('email', '')}</span>",
                     unsafe_allow_html=True,
                 )
             with c2:
                 role_display = u.get("role", "analyst").title()
                 st.markdown(
-                    f"<span style='color: #8b92b3;'>{role_display}</span>",
+                    f"<span style='color: {COLORS['text_muted']};'>{role_display}</span>",
                     unsafe_allow_html=True,
                 )
             with c3:

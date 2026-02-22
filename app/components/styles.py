@@ -1,60 +1,96 @@
-"""CSS styles for the Retina dark theme."""
+"""CSS styles for the Retina light theme — modern, minimal, card-based."""
 
 COLORS = {
-    "bg": "#000227",
-    "bg_card": "#0a0f3a",
-    "bg_hover": "#111852",
+    "bg": "#F5F7FA",
+    "bg_card": "#FFFFFF",
+    "bg_hover": "#EDF0F7",
     "accent": "#076EFF",
-    "accent_hover": "#0858cc",
-    "text": "#FFFFFF",
-    "text_muted": "#8b92b3",
-    "text_dim": "#5a6180",
-    "success": "#00d68f",
-    "warning": "#ffaa00",
-    "error": "#ff3d71",
-    "border": "#1a2055",
+    "accent_hover": "#0558CC",
+    "accent_light": "#EBF2FF",
+    "text": "#0A0A2E",
+    "text_muted": "#4A5568",
+    "text_dim": "#94A3B8",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "error": "#EF4444",
+    "border": "#E2E8F0",
+    "shadow": "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)",
 }
+
+
+def hex_to_rgba(hex_color: str, alpha: float) -> str:
+    """Convert a 6-char hex color to rgba() string.
+
+    Example: hex_to_rgba('#076EFF', 0.13) -> 'rgba(7, 110, 255, 0.13)'
+    """
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r}, {g}, {b}, {alpha})"
 
 
 def inject_css() -> str:
     """Return the main CSS to inject via st.markdown."""
     return f"""
 <style>
-    /* Global overrides */
+    /* ======== GLOBAL ======== */
     .stApp {{
         background-color: {COLORS['bg']};
     }}
 
-    /* Hide default Streamlit elements */
+    /* Hide default Streamlit chrome */
     #MainMenu {{visibility: hidden;}}
     header {{visibility: hidden;}}
     footer {{visibility: hidden;}}
 
-    /* Sidebar styling */
+    /* Global font smoothing */
+    * {{
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }}
+
+    /* ======== SIDEBAR ======== */
     section[data-testid="stSidebar"] {{
         background-color: {COLORS['bg_card']};
         border-right: 1px solid {COLORS['border']};
     }}
 
     section[data-testid="stSidebar"] .stMarkdown h1 {{
-        font-size: 1.1rem;
+        font-size: 1rem;
         letter-spacing: 0.05em;
-        color: {COLORS['text_muted']};
+        color: {COLORS['text_dim']};
         text-transform: uppercase;
         margin-bottom: 0.5rem;
     }}
 
-    /* Card component */
+    /* Sidebar buttons — ghost style */
+    section[data-testid="stSidebar"] .stButton > button {{
+        background: transparent !important;
+        border: none !important;
+        color: {COLORS['text_muted']} !important;
+        text-align: left !important;
+        font-weight: 500 !important;
+        padding: 0.6rem 1rem !important;
+        border-radius: 8px !important;
+        transition: all 0.15s !important;
+    }}
+    section[data-testid="stSidebar"] .stButton > button:hover {{
+        background: {COLORS['bg_hover']} !important;
+        color: {COLORS['text']} !important;
+    }}
+
+    /* ======== CARDS ======== */
     .retina-card {{
         background: {COLORS['bg_card']};
         border: 1px solid {COLORS['border']};
         border-radius: 12px;
         padding: 1.5rem;
         margin-bottom: 1rem;
-        transition: border-color 0.2s;
+        box-shadow: {COLORS['shadow']};
+        transition: border-color 0.2s, box-shadow 0.2s;
     }}
     .retina-card:hover {{
-        border-color: {COLORS['accent']};
+        border-color: {hex_to_rgba(COLORS['accent'], 0.3)};
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }}
 
     /* Metric card */
@@ -64,6 +100,7 @@ def inject_css() -> str:
         border-radius: 12px;
         padding: 1.25rem;
         text-align: center;
+        box-shadow: {COLORS['shadow']};
     }}
     .metric-card .metric-value {{
         font-size: 2.5rem;
@@ -77,7 +114,7 @@ def inject_css() -> str:
         margin-top: 0.25rem;
     }}
 
-    /* Status badges */
+    /* ======== STATUS BADGES ======== */
     .badge {{
         display: inline-block;
         padding: 0.2rem 0.75rem;
@@ -88,29 +125,55 @@ def inject_css() -> str:
         letter-spacing: 0.03em;
     }}
     .badge-draft {{
-        background: rgba(90, 97, 128, 0.3);
-        color: {COLORS['text_muted']};
+        background: {COLORS['bg_hover']};
+        color: {COLORS['text_dim']};
     }}
     .badge-in_progress {{
-        background: rgba(7, 110, 255, 0.2);
+        background: {COLORS['accent_light']};
         color: {COLORS['accent']};
     }}
     .badge-complete {{
-        background: rgba(0, 214, 143, 0.2);
+        background: {hex_to_rgba(COLORS['success'], 0.12)};
         color: {COLORS['success']};
     }}
 
-    /* Buttons */
+    /* ======== BUTTONS ======== */
     .stButton > button {{
         border-radius: 8px;
         font-weight: 600;
         transition: all 0.2s;
+        border: 1px solid {COLORS['border']};
+    }}
+    /* Primary buttons */
+    .stButton > button[kind="primary"],
+    .stFormSubmitButton > button[kind="primary"] {{
+        background-color: {COLORS['accent']} !important;
+        color: #FFFFFF !important;
+        border: none !important;
+        padding: 0.5rem 1.25rem !important;
+        box-shadow: 0 1px 2px rgba(7, 110, 255, 0.2) !important;
+    }}
+    .stButton > button[kind="primary"]:hover,
+    .stFormSubmitButton > button[kind="primary"]:hover {{
+        background-color: {COLORS['accent_hover']} !important;
+        box-shadow: 0 2px 8px rgba(7, 110, 255, 0.3) !important;
+    }}
+    /* Secondary buttons */
+    .stButton > button[kind="secondary"] {{
+        background: {COLORS['bg_card']} !important;
+        border: 1px solid {COLORS['border']} !important;
+        color: {COLORS['text_muted']} !important;
+    }}
+    .stButton > button[kind="secondary"]:hover {{
+        background: {COLORS['bg_hover']} !important;
+        border-color: {COLORS['accent']} !important;
+        color: {COLORS['text']} !important;
     }}
 
-    /* Form inputs */
+    /* ======== FORM INPUTS ======== */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {{
-        background-color: {COLORS['bg']} !important;
+        background-color: {COLORS['bg_card']} !important;
         border: 1px solid {COLORS['border']} !important;
         border-radius: 8px !important;
         color: {COLORS['text']} !important;
@@ -118,34 +181,46 @@ def inject_css() -> str:
     .stTextInput > div > div > input:focus,
     .stTextArea > div > div > textarea:focus {{
         border-color: {COLORS['accent']} !important;
-        box-shadow: 0 0 0 1px {COLORS['accent']} !important;
+        box-shadow: 0 0 0 2px {hex_to_rgba(COLORS['accent'], 0.15)} !important;
     }}
 
     /* Select boxes */
     .stSelectbox > div > div {{
-        background-color: {COLORS['bg']} !important;
+        background-color: {COLORS['bg_card']} !important;
         border-color: {COLORS['border']} !important;
         border-radius: 8px !important;
     }}
 
-    /* Tabs */
+    /* ======== TABS ======== */
     .stTabs [data-baseweb="tab-list"] {{
         gap: 0;
-        background-color: {COLORS['bg_card']};
-        border-radius: 8px;
+        background-color: {COLORS['bg']};
+        border-radius: 10px;
         padding: 4px;
+        border: 1px solid {COLORS['border']};
     }}
     .stTabs [data-baseweb="tab"] {{
-        border-radius: 6px;
+        border-radius: 8px;
         padding: 8px 16px;
         color: {COLORS['text_muted']};
+        font-weight: 500;
+    }}
+    .stTabs [data-baseweb="tab"]:hover {{
+        color: {COLORS['text']};
+        background: {COLORS['bg_hover']};
     }}
     .stTabs [aria-selected="true"] {{
         background-color: {COLORS['accent']} !important;
-        color: white !important;
+        color: #FFFFFF !important;
+        font-weight: 600;
+    }}
+    /* Remove default tab underline */
+    .stTabs [data-baseweb="tab-highlight"],
+    .stTabs [data-baseweb="tab-border"] {{
+        display: none !important;
     }}
 
-    /* Project list row */
+    /* ======== PROJECT LIST ROW ======== */
     .project-row {{
         background: {COLORS['bg_card']};
         border: 1px solid {COLORS['border']};
@@ -157,19 +232,20 @@ def inject_css() -> str:
         justify-content: space-between;
         cursor: pointer;
         transition: all 0.2s;
+        box-shadow: {COLORS['shadow']};
     }}
     .project-row:hover {{
         border-color: {COLORS['accent']};
-        background: {COLORS['bg_hover']};
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
     }}
 
-    /* Divider */
+    /* ======== DIVIDERS ======== */
     hr {{
         border-color: {COLORS['border']} !important;
         margin: 1.5rem 0 !important;
     }}
 
-    /* Logo area */
+    /* ======== LOGO ======== */
     .sidebar-logo {{
         padding: 1rem 0 1.5rem 0;
         text-align: center;
@@ -179,7 +255,7 @@ def inject_css() -> str:
         height: auto;
     }}
 
-    /* Nav items */
+    /* ======== NAV ITEMS ======== */
     .nav-item {{
         padding: 0.6rem 1rem;
         border-radius: 8px;
@@ -196,8 +272,99 @@ def inject_css() -> str:
         color: {COLORS['text']};
     }}
     .nav-item.active {{
-        background: rgba(7, 110, 255, 0.15);
+        background: {COLORS['accent_light']};
         color: {COLORS['accent']};
+    }}
+
+    /* ======== TECH TAGS ======== */
+    .tech-tags {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 0.5rem 0;
+    }}
+
+    /* ======== AUDIT SECTIONS ======== */
+    .audit-section {{
+        background: {COLORS['bg_card']};
+        border: 1px solid {COLORS['border']};
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+        box-shadow: {COLORS['shadow']};
+    }}
+    .audit-section-header {{
+        padding: 0.75rem 1rem;
+        background: #F8FAFC;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: {COLORS['text_muted']};
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        border-bottom: 1px solid {COLORS['border']};
+    }}
+
+    /* ======== SLIDER LABELS ======== */
+    .stSlider label {{
+        color: {COLORS['text']} !important;
+    }}
+
+    /* ======== ANALYST WORKSPACE ======== */
+    .workspace-section {{
+        background: {COLORS['bg_card']};
+        border: 1px solid {COLORS['border']};
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.25rem;
+        box-shadow: {COLORS['shadow']};
+    }}
+    .workspace-section h4 {{
+        color: {COLORS['text_dim']};
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 1rem;
+    }}
+
+    /* ======== CHECKLIST ======== */
+    .checklist-item {{
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.6rem 0;
+        border-bottom: 1px solid {COLORS['border']};
+    }}
+    .checklist-done {{
+        color: {COLORS['success']};
+        font-weight: 600;
+    }}
+    .checklist-pending {{
+        color: {COLORS['text_dim']};
+    }}
+
+    /* ======== EXPANDERS ======== */
+    .streamlit-expanderHeader {{
+        background: {COLORS['bg_card']} !important;
+        border: 1px solid {COLORS['border']} !important;
+        border-radius: 8px !important;
+        color: {COLORS['text']} !important;
+    }}
+
+    /* ======== PROGRESS BAR ======== */
+    .stProgress > div > div > div > div {{
+        background-color: {COLORS['accent']} !important;
+    }}
+
+    /* ======== DOWNLOAD BUTTON ======== */
+    .stDownloadButton > button {{
+        border: 1px solid {COLORS['border']} !important;
+        background: {COLORS['bg_card']} !important;
+        color: {COLORS['text_muted']} !important;
+        border-radius: 8px !important;
+    }}
+    .stDownloadButton > button:hover {{
+        border-color: {COLORS['accent']} !important;
+        color: {COLORS['accent']} !important;
     }}
 </style>
 """

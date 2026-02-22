@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
 
-from app.components.styles import inject_css
+from app.components.styles import COLORS, inject_css
 from app.pages import admin, dashboard, login, new_analysis, project_detail
 from app.pages.login import render_change_password
 
@@ -73,8 +73,7 @@ def _render_sidebar() -> None:
         if os.path.exists(logo_path):
             with open(logo_path) as f:
                 svg_content = f.read()
-            # Recolor SVG for dark background
-            svg_content = svg_content.replace('fill="#000227"', 'fill="#FFFFFF"')
+            # Keep original dark logo on light background (no recolor needed)
             st.markdown(
                 f"<div class='sidebar-logo'>{svg_content}</div>",
                 unsafe_allow_html=True,
@@ -109,7 +108,7 @@ def _render_sidebar() -> None:
 
         # User info
         st.markdown(
-            f"<div style='padding: 0.5rem; color: #8b92b3; font-size: 0.85rem;'>"
+            f"<div style='padding: 0.5rem; color: {COLORS['text_muted']}; font-size: 0.85rem;'>"
             f"<strong>{user.get('name', 'User')}</strong><br/>"
             f"{user.get('email', '')}<br/>"
             f"<span style='text-transform: capitalize;'>{role}</span>"

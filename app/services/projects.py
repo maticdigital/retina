@@ -193,6 +193,46 @@ def save_analyst_score(
     return resp.data[0]
 
 
+def upsert_analyst_score(
+    project_id: str,
+    site_url: str,
+    lens_name: str,
+    sub_scores: dict,
+    raw_observations: str = "",
+    refined_observations: str = "",
+    screenshots: list[str] | None = None,
+) -> dict[str, Any]:
+    """Save or update analyst score for a lens (upsert for auto-save)."""
+    sb = get_supabase()
+    existing = (
+        sb.table("analyst_scores")
+        .select("id")
+        .eq("project_id", project_id)
+        .eq("site_url", site_url)
+        .eq("lens_name", lens_name)
+        .execute()
+    )
+    row = {
+        "project_id": project_id,
+        "site_url": site_url,
+        "lens_name": lens_name,
+        "sub_scores": sub_scores,
+        "raw_observations": raw_observations,
+        "refined_observations": refined_observations,
+        "screenshots": screenshots or [],
+    }
+    if existing.data:
+        resp = (
+            sb.table("analyst_scores")
+            .update(row)
+            .eq("id", existing.data[0]["id"])
+            .execute()
+        )
+    else:
+        resp = sb.table("analyst_scores").insert(row).execute()
+    return resp.data[0]
+
+
 def get_analyst_scores(project_id: str) -> list[dict[str, Any]]:
     """Get all analyst scores for a project."""
     sb = get_supabase()

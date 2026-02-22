@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from app.components.styles import COLORS
 from app.services.projects import create_project
 from app.services.pipeline import run_analysis_sync
 
@@ -14,7 +15,7 @@ def render() -> None:
 
     st.markdown("### New Analysis")
     st.markdown(
-        "<p style='color: #8b92b3;'>Create a new competitive analysis project.</p>",
+        f"<p style='color: {COLORS['text_muted']};'>Create a new competitive analysis project.</p>",
         unsafe_allow_html=True,
     )
 
@@ -23,7 +24,7 @@ def render() -> None:
         primary_url = st.text_input("Primary URL", placeholder="https://yoursite.com")
 
         st.markdown(
-            "<p style='color: #8b92b3; font-size: 0.85rem; margin-top: 0.5rem;'>"
+            f"<p style='color: {COLORS['text_muted']}; font-size: 0.85rem; margin-top: 0.5rem;'>"
             "Add up to 3 competitor URLs for comparative analysis.</p>",
             unsafe_allow_html=True,
         )

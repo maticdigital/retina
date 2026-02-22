@@ -573,7 +573,7 @@ html, body {
     <div class="cover-logo" style="font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">RETINA</div>
     {% endif %}
 
-    <h1 class="cover-title">Website Intelligence<br><span class="cover-accent">Report</span></h1>
+    <h1 class="cover-title">Digital Experience<br><span class="cover-accent">Readiness Report</span></h1>
     <hr class="cover-divider">
     <div class="cover-url">{{ primary_url }}</div>
 
@@ -601,8 +601,8 @@ html, body {
         {% endfor %}
     {% else %}
     <p class="body-text-lg" style="color: #9BA8B7; font-style: italic;">
-        Executive summary not available. Run with competitor URLs and an Anthropic API key
-        to generate AI-powered competitive analysis.
+        Executive summary pending. Add competitor URLs and an Anthropic API key to
+        generate a strategic competitive analysis with prioritized recommendations.
     </p>
     {% endif %}
 </div>
@@ -611,10 +611,11 @@ html, body {
 <!-- SCORING OVERVIEW                                               -->
 <!-- ============================================================ -->
 <div class="page">
-    <h2 class="section-header">The Retina Scoring Framework</h2>
+    <h2 class="section-header">About This Report</h2>
     <p class="section-subtitle">
-        Five lenses assess digital experience readiness across complementary dimensions
-        of website performance and strategic effectiveness.
+        Retina evaluates real-world digital experiences to reveal where online performance
+        is being won or lost. Five lenses assess digital experience readiness across
+        complementary dimensions of website performance and strategic effectiveness.
     </p>
 
     <div class="lens-grid">
@@ -627,8 +628,10 @@ html, body {
     </div>
 
     <div class="lens-note">
-        Each lens is worth 20 points. The composite 100-point Retina Score measures
-        overall digital experience readiness relative to the competitive set.
+        Each lens is scored 0–20 points. The composite Retina Score (0–100) represents
+        overall digital experience readiness. Digital experience is now the primary driver
+        of awareness, consideration, and conversion — gaps in clarity, usability, or
+        technical performance create friction that costs pipeline, even for strong brands.
     </div>
 </div>
 
@@ -676,8 +679,9 @@ html, body {
 <div class="page">
     <h2 class="section-header">Competitive Comparison</h2>
     <p class="section-subtitle">
-        All sites compared across the five Retina lenses. Gaps and advantages
-        are immediately visible in the relative bar lengths.
+        Competitive positioning across all five Retina lenses. Relative strengths
+        and gaps are immediately visible — revealing where the primary site
+        over-performs, under-performs, or is on-par with the competitive set.
     </p>
 
     <div class="comparison-chart">
@@ -734,9 +738,9 @@ html, body {
 <!-- ============================================================ -->
 {% if has_recommendations %}
 <div class="page">
-    <h2 class="section-header">Strategic Quadrant</h2>
+    <h2 class="section-header">Where We Go From Here</h2>
     <p class="section-subtitle">
-        AI-generated recommendations plotted by effort and impact.
+        Recommendations mapped by effort and impact to guide strategic prioritization.
         Numbers correspond to the prioritized roadmap on the following page.
     </p>
 
@@ -760,8 +764,8 @@ html, body {
 <div class="page">
     <h2 class="section-header">Prioritized Roadmap</h2>
     <p class="section-subtitle">
-        Recommendations listed in suggested execution sequence, starting
-        with highest-impact, lowest-effort items.
+        Actionable recommendations in suggested execution sequence — starting with
+        no-brainer quick wins and building toward transformational strategic investments.
     </p>
 
     {% for rec in roadmap_items %}
@@ -789,37 +793,43 @@ html, body {
 
     <div class="methodology">
         <p>
-            <span class="source-label">Automated Scoring</span> is powered by
-            Google Lighthouse via the PageSpeed Insights API. Each URL is analyzed
-            for both mobile and desktop, producing scores for Performance,
-            Accessibility, Best Practices, and SEO, plus Core Web Vitals metrics
-            (LCP, FCP, CLS, TBT, INP, Speed Index).
+            Retina combines automated performance benchmarking with human strategic
+            evaluation to surface exactly where gaps are and what to do about them.
         </p>
         <p>
-            <span class="source-label">Technology Detection</span> is performed via
-            the BuiltWith API, identifying frameworks, CDNs, analytics tools, and
-            other technologies in use.
+            <span class="source-label">Automated Scoring</span> — Powered by Google
+            Lighthouse via the PageSpeed Insights API. Each URL is analyzed for both
+            mobile and desktop, producing scores for Performance, Accessibility, Best
+            Practices, and SEO, plus Core Web Vitals metrics (LCP, FCP, CLS, TBT,
+            INP, Speed Index). Mobile scores are used as the primary benchmark,
+            reflecting Google's mobile-first indexing approach.
         </p>
         <p>
-            <span class="source-label">Strategic Evaluation</span> (Brand &amp; Messaging,
-            Experience &amp; Design, Conversion &amp; Strategy) is conducted by
-            Matic Digital analysts using a structured rubric with documented
-            sub-dimensions and observations.
+            <span class="source-label">Technology Detection</span> — Performed via
+            the BuiltWith API, identifying the technology choices that define a site's
+            capabilities and constraints: CMS, hosting, CDN, frameworks, analytics,
+            and security infrastructure.
         </p>
         <p>
-            <span class="source-label">AI-Assisted Analysis</span> is powered by
+            <span class="source-label">Strategic Evaluation</span> — Brand &amp; Messaging,
+            Experience &amp; Design, and Conversion &amp; Strategy are evaluated by Matic
+            Digital analysts using a structured rubric. Each lens includes documented
+            sub-dimensions, scored observations, and supporting evidence.
+        </p>
+        <p>
+            <span class="source-label">AI-Assisted Analysis</span> — Powered by
             Anthropic's Claude. The model synthesizes automated data and analyst
-            scores to produce competitive comparisons, gap identification, and
-            prioritized strategic recommendations.
+            findings to produce competitive comparisons, gap identification, and
+            prioritized strategic recommendations mapped by effort and impact.
         </p>
         <p style="margin-top: 18px;">
             <span class="source-label">Scoring Scale:</span>
             Each of the five lenses is scored 0\u201320 points. The composite Retina
             Score (0\u2013100) represents overall digital experience readiness.
-            Automated lenses (Performance &amp; Technical Health, SEO &amp; AI Visibility)
-            contribute up to 40 points. Analyst-scored lenses (Brand &amp; Messaging,
-            Experience &amp; Design, Conversion &amp; Strategy) contribute up to 60 points
-            when a rubric is provided.
+            Automated lenses contribute up to 40 points. Analyst-scored lenses
+            contribute up to 60 points. Score tiers: 0\u201325 (Poor — modernization
+            needed), 26\u201350 (Challenging — focus needed), 51\u201375 (Functional —
+            optimization opportunity), 76\u2013100 (Ideal — positioned for growth).
         </p>
     </div>
 
@@ -872,9 +882,10 @@ def _build_scorecard(
     pending_note = None
     if not has_analyst:
         pending_note = (
-            "Analyst lenses (Brand & Messaging, Experience & Design, "
-            "Conversion & Strategy) are pending strategic evaluation. "
-            "Score shown reflects automated lenses only."
+            "Strategic evaluation lenses (Brand & Messaging, Experience & Design, "
+            "Conversion & Strategy) are pending analyst review. The score shown "
+            "reflects automated lenses only — the full Retina Score will be "
+            "available once strategic evaluation is complete."
         )
 
     return {

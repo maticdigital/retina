@@ -12,6 +12,7 @@ from typing import Any
 # Add src to path so we can import retina modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
+from retina.analysis.analyst_seeder import AnalystLensSeeder
 from retina.analysis.claude import ClaudeAnalyzer
 from retina.clients.builtwith import BuiltWithClient
 from retina.clients.pagespeed import PageSpeedClient
@@ -25,7 +26,7 @@ from retina.scoring.performance import score_performance_lens
 from retina.scoring.seo import score_seo_lens
 from retina.utils.url import normalize_url
 
-from app.services.projects import save_project_data, save_report, update_project_status
+from app.services.projects import save_project_data, save_report, update_project_status, upsert_analyst_score
 from app.services.storage import upload_report_pdf, upload_screenshot
 
 logger = logging.getLogger(__name__)
@@ -157,12 +158,13 @@ async def run_analysis(
                     "is_automated": ls.is_automated,
                 }
 
-            # Prepare lighthouse data (strip raw_responses to save space)
+            # Prepare lighthouse data (include audits for detailed views)
             lighthouse_data = {}
             for perf in report.performance:
                 lighthouse_data[perf.strategy.value] = {
                     "lighthouse_scores": perf.lighthouse_scores.model_dump(),
                     "core_web_vitals": perf.core_web_vitals.model_dump(),
+                    "audits": [a.model_dump() for a in perf.audits],
                 }
 
             builtwith_data = report.tech_stack.model_dump() if report.tech_stack else {}
@@ -175,6 +177,48 @@ async def run_analysis(
                 screenshot_paths=screenshot_urls,
                 automated_scores=automated_scores,
             )
+
+        # Seed analyst lens scores with AI for each site
+        if settings.anthropic_api_key:
+            _progress("Generating AI-powered analyst evaluations...")
+            try:
+                seeder = AnalystLensSeeder(settings)
+                for report in reports:
+                    _progress(f"AI evaluating {report.normalized_url}...")
+                    lh_data = {}
+                    for perf in report.performance:
+                        lh_data[perf.strategy.value] = {
+                            "lighthouse_scores": perf.lighthouse_scores.model_dump(),
+                            "core_web_vitals": perf.core_web_vitals.model_dump(),
+                        }
+                    bw_data = report.tech_stack.model_dump() if report.tech_stack else {}
+                    ss_paths = {}
+                    if report.screenshots:
+                        if report.screenshots.viewport:
+                            ss_paths["viewport"] = report.screenshots.viewport
+                    auto_scores = {}
+                    for ls in report.retina_score.lens_scores:
+                        auto_scores[ls.lens.value] = {"score": ls.score}
+
+                    seeded = seeder.seed(
+                        site_url=report.normalized_url,
+                        lighthouse_data=lh_data,
+                        builtwith_data=bw_data,
+                        screenshot_paths=ss_paths,
+                        automated_scores=auto_scores,
+                    )
+                    for lens_name, lens_data in seeded.items():
+                        upsert_analyst_score(
+                            project_id=project_id,
+                            site_url=report.normalized_url,
+                            lens_name=lens_name,
+                            sub_scores=lens_data["sub_scores"],
+                            raw_observations=lens_data.get("observations", ""),
+                        )
+                _progress("AI analyst evaluations complete.")
+            except Exception as e:
+                logger.exception("Analyst lens seeding failed")
+                _progress(f"AI analyst seeding failed: {e}")
 
         # Build AnalysisRun for AI analysis + PDF
         import uuid as _uuid
