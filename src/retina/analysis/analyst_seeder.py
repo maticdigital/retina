@@ -93,39 +93,47 @@ Language rules:
 - Every sentence must reference something specific about this site
 - No filler — if a sentence could apply to any website, cut it
 
+## Sub-Dimension Observation Guidelines
+
+For each sub-dimension, write a 2-3 sentence observation that:
+- References specific elements or patterns observed on the site
+- Connects findings to business impact or visitor experience
+- Frames gaps as opportunities, not failures
+
 ## Output Format
 
-Respond with ONLY valid JSON matching this exact structure:
+Respond with ONLY valid JSON matching this exact structure. Each sub-dimension \
+includes both a numeric score AND a brief observation:
 
 {
   "brand_messaging": {
     "sub_scores": {
-      "brand_clarity_consistency": 3.5,
-      "value_proposition_strength": 2.5,
-      "content_quality_tone": 3.0,
-      "visual_identity_differentiation": 4.0
+      "brand_clarity_consistency": {"score": 3.5, "observation": "The brand identity is communicated through consistent visual elements, though the logo treatment varies between pages. Strengthening the header lockup would reinforce recognition across touchpoints."},
+      "value_proposition_strength": {"score": 2.5, "observation": "The value proposition is present but buried below the fold. Leading with outcome-focused language would better communicate differentiation to first-time visitors."},
+      "content_quality_tone": {"score": 3.0, "observation": "Copy maintains a professional tone but defaults to feature-listing rather than benefit-framing. Shifting to client-outcome language would strengthen engagement."},
+      "visual_identity_differentiation": {"score": 4.0, "observation": "The visual system uses a distinctive color palette and typography that sets it apart from competitors. This is an asset worth preserving and extending."}
     },
-    "observations": "Strategic observation narrative..."
+    "observations": "Overall strategic observation narrative for this lens..."
   },
   "experience_design": {
     "sub_scores": {
-      "visual_design_quality": 3.0,
-      "navigation_information_architecture": 2.5,
-      "interaction_design_micro_interactions": 2.0,
-      "responsiveness_cross_device": 3.5,
-      "content_layout_readability": 3.0
+      "visual_design_quality": {"score": 3.0, "observation": "Specific observation..."},
+      "navigation_information_architecture": {"score": 2.5, "observation": "Specific observation..."},
+      "interaction_design_micro_interactions": {"score": 2.0, "observation": "Specific observation..."},
+      "responsiveness_cross_device": {"score": 3.5, "observation": "Specific observation..."},
+      "content_layout_readability": {"score": 3.0, "observation": "Specific observation..."}
     },
-    "observations": "Strategic observation narrative..."
+    "observations": "Overall strategic observation narrative for this lens..."
   },
   "conversion_strategy": {
     "sub_scores": {
-      "cta_effectiveness": 2.5,
-      "user_journey_funnel_design": 2.0,
-      "trust_signals_social_proof": 3.0,
-      "lead_capture_form_design": 2.5,
-      "strategic_positioning_vs_competitors": 3.0
+      "cta_effectiveness": {"score": 2.5, "observation": "Specific observation..."},
+      "user_journey_funnel_design": {"score": 2.0, "observation": "Specific observation..."},
+      "trust_signals_social_proof": {"score": 3.0, "observation": "Specific observation..."},
+      "lead_capture_form_design": {"score": 2.5, "observation": "Specific observation..."},
+      "strategic_positioning_vs_competitors": {"score": 3.0, "observation": "Specific observation..."}
     },
-    "observations": "Strategic observation narrative..."
+    "observations": "Overall strategic observation narrative for this lens..."
   }
 }
 
@@ -259,9 +267,20 @@ class AnalystLensSeeder:
             observations = lens_data.get("observations", "")
 
             # Validate and clamp scores to valid ranges
-            validated_scores: dict[str, float] = {}
+            # Support both old {key: float} and new {key: {score, observation}} shapes
+            validated_scores: dict[str, dict[str, Any]] = {}
             for dim_key, max_val in sub_dims.items():
-                score = raw_scores.get(dim_key, 0)
+                raw_val = raw_scores.get(dim_key, 0)
+                obs_text = ""
+
+                if isinstance(raw_val, dict):
+                    # New shape: {score: float, observation: str}
+                    score = raw_val.get("score", 0)
+                    obs_text = str(raw_val.get("observation", ""))
+                else:
+                    # Old shape: just a float
+                    score = raw_val
+
                 try:
                     score = float(score)
                 except (TypeError, ValueError):
@@ -269,7 +288,10 @@ class AnalystLensSeeder:
                 # Round to nearest 0.5 and clamp
                 score = round(score * 2) / 2
                 score = max(0.0, min(score, max_val))
-                validated_scores[dim_key] = score
+                validated_scores[dim_key] = {
+                    "score": score,
+                    "observation": obs_text,
+                }
 
             result[lens_name] = {
                 "sub_scores": validated_scores,
