@@ -32,7 +32,7 @@ class ProjectOut(BaseModel):
     primary_url: str
     competitor_urls: list[str]
     status: str
-    created_by: str
+    created_by: str | None = None
     created_at: str
     updated_at: str
     archived: bool = False
