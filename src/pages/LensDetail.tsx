@@ -740,11 +740,11 @@ const CONVERSION_DESCRIPTIONS: Record<string, string> = {
   funnel_design: 'How naturally the path from awareness to conversion flows without dead ends',
 };
 
-const LENS_DESCRIPTIONS: Record<string, Record<string, string>> = {
-  brand_messaging: BRAND_DESCRIPTIONS,
-  experience_design: EXPERIENCE_DESCRIPTIONS,
-  conversion_strategy: CONVERSION_DESCRIPTIONS,
-};
+// const LENS_DESCRIPTIONS: Record<string, Record<string, string>> = {
+//   brand_messaging: BRAND_DESCRIPTIONS,
+//   experience_design: EXPERIENCE_DESCRIPTIONS,
+//   conversion_strategy: CONVERSION_DESCRIPTIONS,
+// };
 
 /* ── Sub-dimension max scores per lens ──── */
 
