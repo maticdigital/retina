@@ -108,6 +108,19 @@ def _extract_observations(sub_scores: dict) -> str:
     return "\n".join(parts)
 
 
+def _extract_subdim_observations(sub_scores: dict) -> dict[str, str]:
+    """Extract per-subdimension observation text from sub_scores.
+
+    Returns a dict of {subdim_key: observation_text} for use
+    in lens page rendering.
+    """
+    obs: dict[str, str] = {}
+    for k, v in sub_scores.items():
+        if isinstance(v, dict) and v.get("observation"):
+            obs[k] = v["observation"]
+    return obs
+
+
 # ---------------------------------------------------------------------------
 # Performance data mapping
 # ---------------------------------------------------------------------------
@@ -255,18 +268,22 @@ def _build_recommendations(quadrant_data: dict) -> list[Recommendation]:
 # ---------------------------------------------------------------------------
 
 
-def build_analysis_run(project_id: str) -> AnalysisRun:
+def build_analysis_run(project_id: str) -> dict:
     """Fetch all project data from Supabase and build an AnalysisRun.
 
     This is the bridge between the Supabase-backed web app and the
     existing PDF renderer. It produces the exact model that render_pdf()
-    expects.
+    expects, plus extra metadata for the render call.
 
     Args:
         project_id: The project UUID.
 
     Returns:
-        A fully populated AnalysisRun ready for render_pdf().
+        A dict with keys:
+            analysis: AnalysisRun — the core data model
+            project_title: str | None — display name for the project
+            analyst_name: str | None — name of the analyst
+            subdim_observations: dict — per-lens per-subdim observation text
     """
     sb = get_supabase()
 
@@ -318,11 +335,18 @@ def build_analysis_run(project_id: str) -> AnalysisRun:
             ))
 
     # Analyst scores (Brand, Experience, Conversion)
+    subdim_observations: dict[str, dict[str, str]] = {}
+    analyst_name: str | None = None
+
     for a_score in analyst_scores:
         lens_name = a_score.get("lens_name", "")
         lens_type = LENS_KEY_TO_TYPE.get(lens_name)
         if not lens_type:
             continue
+
+        # Track analyst name from first score that has one
+        if not analyst_name and a_score.get("analyst_name"):
+            analyst_name = a_score["analyst_name"]
 
         sub_scores = a_score.get("sub_scores") or {}
         total = _sum_sub_scores(sub_scores)
@@ -332,6 +356,11 @@ def build_analysis_run(project_id: str) -> AnalysisRun:
         raw_obs = a_score.get("raw_observations") or ""
         sub_obs = _extract_observations(sub_scores)
         notes = raw_obs or sub_obs or None
+
+        # Per-subdim observations for lens page rendering
+        per_subdim = _extract_subdim_observations(sub_scores)
+        if per_subdim:
+            subdim_observations[lens_name] = per_subdim
 
         lens_scores.append(LensScore(
             lens=lens_type,
@@ -426,6 +455,9 @@ def build_analysis_run(project_id: str) -> AnalysisRun:
         ai_analysis=ai_analysis,
     )
 
+    # Project title from project record
+    project_title = project.get("name") or project.get("primary_url", "")
+
     logger.info(
         "Built AnalysisRun for %s: score=%.1f, %d lens scores, %d recommendations",
         project_id,
@@ -434,4 +466,9 @@ def build_analysis_run(project_id: str) -> AnalysisRun:
         len(recommendations),
     )
 
-    return analysis_run
+    return {
+        "analysis": analysis_run,
+        "project_title": project_title,
+        "analyst_name": analyst_name,
+        "subdim_observations": subdim_observations,
+    }

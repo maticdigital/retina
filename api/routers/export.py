@@ -67,49 +67,75 @@ class ExportStatusResponse(BaseModel):
 
 
 def _run_export(project_id: str, job_id: str):
-    """Background task: build PDF and upload to storage."""
+    """Background task: build PDF and upload to storage.
+
+    Each step is wrapped individually so the error message surfaces
+    exactly which phase failed.  The outer try/except is a safety net
+    for truly unexpected errors.
+    """
+    tmp_path: str | None = None
+
     try:
         _set_job(job_id, project_id, status="generating")
 
-        # Ensure src is on path for retina imports
+        # ── Environment setup ────────────────────────────────────────
         src_path = os.path.join(os.path.dirname(__file__), "..", "..", "src")
         if src_path not in sys.path:
             sys.path.insert(0, src_path)
 
-        # Ensure WeasyPrint can find native libs
+        # WeasyPrint native lib path — set before any import of renderer
         os.environ.setdefault("DYLD_LIBRARY_PATH", "/opt/homebrew/lib")
 
         from api.services.pdf_adapter import build_analysis_run
         from retina.report.renderer import render_pdf
         from app.services.storage import upload_report_pdf
 
-        # 1. Build AnalysisRun from Supabase data
+        # ── Step 1: Build AnalysisRun from Supabase data ─────────────
         logger.info("Export %s: building AnalysisRun", job_id[:8])
-        analysis_run = build_analysis_run(project_id)
+        try:
+            result = build_analysis_run(project_id)
+            analysis_run = result["analysis"]
+        except Exception as e:
+            raise RuntimeError(f"Data adapter failed: {e}") from e
 
-        # 2. Render PDF
+        # ── Step 2: Render PDF ───────────────────────────────────────
         logger.info("Export %s: rendering PDF", job_id[:8])
-        assets_dir = os.path.join(os.path.dirname(__file__), "..", "..", "assets")
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp_path = tmp.name
+        try:
+            assets_dir = os.path.join(os.path.dirname(__file__), "..", "..", "assets")
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                tmp_path = tmp.name
 
-        render_pdf(analysis_run, tmp_path, assets_dir=assets_dir)
-        pdf_size = os.path.getsize(tmp_path)
+            render_pdf(
+                analysis_run,
+                tmp_path,
+                assets_dir=assets_dir,
+                project_title=result.get("project_title"),
+                analyst_name=result.get("analyst_name"),
+                subdim_observations=result.get("subdim_observations"),
+            )
+            pdf_size = os.path.getsize(tmp_path)
+            logger.info("Export %s: PDF rendered (%d bytes)", job_id[:8], pdf_size)
+        except Exception as e:
+            raise RuntimeError(f"PDF render failed: {e}") from e
 
-        # 3. Upload to Supabase Storage
-        logger.info("Export %s: uploading PDF (%d bytes)", job_id[:8], pdf_size)
-        download_url = upload_report_pdf(tmp_path, project_id)
+        # ── Step 3: Upload to Supabase Storage ───────────────────────
+        logger.info("Export %s: uploading PDF", job_id[:8])
+        try:
+            download_url = upload_report_pdf(tmp_path, project_id)
+        except Exception as e:
+            raise RuntimeError(f"Upload failed: {e}") from e
 
-        # 4. Clean up temp file
+        # ── Step 4: Clean up temp file ───────────────────────────────
         try:
             os.unlink(tmp_path)
+            tmp_path = None
         except OSError:
             pass
 
-        # 5. Update in-memory job status
+        # ── Step 5: Update job status ────────────────────────────────
         _set_job(job_id, project_id, status="complete", download_url=download_url)
 
-        # 6. Also store PDF URL in the reports table for persistence
+        # ── Step 6: Persist PDF URL in reports table ─────────────────
         try:
             sb = get_supabase()
             reports_resp = (
@@ -132,6 +158,13 @@ def _run_export(project_id: str, job_id: str):
     except Exception as e:
         logger.exception("Export %s failed: %s", job_id[:8], e)
         _set_job(job_id, project_id, status="error", error=str(e)[:500])
+
+        # Clean up temp file on failure
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────

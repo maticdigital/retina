@@ -12,12 +12,21 @@ import math
 # Color palette
 # ---------------------------------------------------------------------------
 
-NAVY = "#000227"
-ACCENT = "#076EFF"
-GRAY_LIGHT = "#E8EDF3"
+NAVY = "#0A0E27"
+ACCENT = "#0066FF"
+GRAY_LIGHT = "#E8E8E8"
 GRAY_MID = "#9BA8B7"
-GRAY_TEXT = "#5A6778"
+GRAY_TEXT = "#6B7280"
 WHITE = "#FFFFFF"
+
+# Lens colors — spec-defined
+LENS_COLORS = {
+    "performance_technical_health": "#0066FF",
+    "seo_ai_visibility": "#00B8D9",
+    "brand_messaging": "#7B61FF",
+    "experience_design": "#FF6B6B",
+    "conversion_strategy": "#FF8C00",
+}
 
 # Quadrant colors
 Q_NO_BRAINER = "#00c864"
@@ -59,6 +68,199 @@ LENS_ORDER = [
 
 
 # ---------------------------------------------------------------------------
+# Score ring — circular score gauge
+# ---------------------------------------------------------------------------
+
+
+def score_ring(
+    score: float,
+    max_score: float = 100.0,
+    *,
+    size: int = 160,
+    stroke_width: int = 10,
+    color: str = ACCENT,
+    show_max: bool = True,
+    label: str | None = None,
+) -> str:
+    """Generate a circular score gauge.
+
+    Args:
+        score: Current score value.
+        max_score: Maximum possible score.
+        size: SVG width and height.
+        stroke_width: Ring stroke width.
+        color: Ring fill color.
+        show_max: Whether to show "/max" below score.
+        label: Optional label below the score (e.g., "Overall Score").
+
+    Returns:
+        SVG string.
+    """
+    cx, cy = size // 2, size // 2
+    radius = (size - stroke_width * 2 - 10) // 2
+    circumference = 2 * math.pi * radius
+    ratio = min(score / max_score, 1.0) if max_score > 0 else 0
+    dash = circumference * ratio
+    gap = circumference - dash
+
+    lines: list[str] = []
+    lines.append(
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'width="{size}" height="{size}" '
+        f'viewBox="0 0 {size} {size}">'
+    )
+
+    # Background ring
+    lines.append(
+        f'<circle cx="{cx}" cy="{cy}" r="{radius}" '
+        f'fill="none" stroke="{GRAY_LIGHT}" stroke-width="{stroke_width}" />'
+    )
+
+    # Score ring
+    if ratio > 0:
+        lines.append(
+            f'<circle cx="{cx}" cy="{cy}" r="{radius}" '
+            f'fill="none" stroke="{color}" stroke-width="{stroke_width}" '
+            f'stroke-dasharray="{dash:.1f} {gap:.1f}" '
+            f'stroke-linecap="round" '
+            f'transform="rotate(-90 {cx} {cy})" />'
+        )
+
+    # Score text
+    score_display = f"{score:.0f}" if score == int(score) else f"{score:.1f}"
+    font_size = 36 if size >= 140 else (24 if size >= 90 else 18)
+    lines.append(
+        f'<text x="{cx}" y="{cy - 2}" text-anchor="middle" '
+        f'dominant-baseline="central" '
+        f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="{font_size}" '
+        f'font-weight="700" fill="{NAVY}">{score_display}</text>'
+    )
+
+    if show_max:
+        max_display = f"/{int(max_score)}"
+        max_font = 13 if size >= 140 else (10 if size >= 90 else 8)
+        lines.append(
+            f'<text x="{cx}" y="{cy + font_size // 2 + 4}" text-anchor="middle" '
+            f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="{max_font}" '
+            f'fill="{GRAY_TEXT}">{max_display}</text>'
+        )
+
+    if label:
+        label_y = cy + font_size // 2 + 20
+        lines.append(
+            f'<text x="{cx}" y="{label_y}" text-anchor="middle" '
+            f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" '
+            f'fill="{GRAY_TEXT}">{_escape(label)}</text>'
+        )
+
+    lines.append("</svg>")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Segmented donut chart — summary page composite score
+# ---------------------------------------------------------------------------
+
+
+def segmented_donut(
+    lens_scores: dict[str, float],
+    total_score: float,
+    *,
+    size: int = 220,
+    stroke_width: int = 18,
+    gap_degrees: float = 3.0,
+) -> str:
+    """Generate a segmented donut chart showing all 5 lens scores.
+
+    Each lens gets an arc proportional to its score. The arcs are ordered
+    by LENS_ORDER and colored with LENS_COLORS. Total score is centered.
+
+    Args:
+        lens_scores: Dict mapping lens key to score (0-20 each).
+        total_score: Composite score to display in center.
+        size: SVG width and height.
+        stroke_width: Donut ring stroke width.
+        gap_degrees: Gap between segments in degrees.
+
+    Returns:
+        SVG string.
+    """
+    cx, cy = size // 2, size // 2
+    radius = (size - stroke_width * 2 - 10) // 2
+    circumference = 2 * math.pi * radius
+
+    # Calculate total raw for proportions
+    raw_total = sum(lens_scores.get(k, 0) for k in LENS_ORDER)
+    if raw_total <= 0:
+        raw_total = 1  # avoid division by zero
+
+    # Total degrees available after gaps
+    num_segments = len(LENS_ORDER)
+    total_gap_degrees = gap_degrees * num_segments
+    available_degrees = 360 - total_gap_degrees
+
+    lines: list[str] = []
+    lines.append(
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'width="{size}" height="{size}" '
+        f'viewBox="0 0 {size} {size}">'
+    )
+
+    # Background ring
+    lines.append(
+        f'<circle cx="{cx}" cy="{cy}" r="{radius}" '
+        f'fill="none" stroke="#F0F0F0" stroke-width="{stroke_width}" />'
+    )
+
+    # Draw segments
+    current_angle = -90  # Start from top
+
+    for lens_key in LENS_ORDER:
+        score = lens_scores.get(lens_key, 0)
+        color = LENS_COLORS.get(lens_key, ACCENT)
+
+        # Arc length proportional to score
+        segment_degrees = (score / raw_total) * available_degrees if score > 0 else 0
+
+        if segment_degrees > 0:
+            arc_length = (segment_degrees / 360) * circumference
+            gap_length = circumference - arc_length
+
+            # Rotation to position this segment
+            lines.append(
+                f'<circle cx="{cx}" cy="{cy}" r="{radius}" '
+                f'fill="none" stroke="{color}" stroke-width="{stroke_width}" '
+                f'stroke-dasharray="{arc_length:.2f} {gap_length:.2f}" '
+                f'stroke-linecap="round" '
+                f'transform="rotate({current_angle:.1f} {cx} {cy})" />'
+            )
+
+        current_angle += segment_degrees + gap_degrees
+
+    # Center text — total score
+    score_display = f"{total_score:.0f}" if total_score == int(total_score) else f"{total_score:.1f}"
+    lines.append(
+        f'<text x="{cx}" y="{cy - 8}" text-anchor="middle" '
+        f'dominant-baseline="central" '
+        f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="42" '
+        f'font-weight="700" fill="{NAVY}">{score_display}</text>'
+    )
+    lines.append(
+        f'<text x="{cx}" y="{cy + 18}" text-anchor="middle" '
+        f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" '
+        f'fill="{GRAY_TEXT}">/100</text>'
+    )
+    lines.append(
+        f'<text x="{cx}" y="{cy + 36}" text-anchor="middle" '
+        f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" '
+        f'fill="{GRAY_TEXT}">Overall Score</text>'
+    )
+
+    lines.append("</svg>")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Horizontal bar chart — single site scorecard
 # ---------------------------------------------------------------------------
 
@@ -66,28 +268,31 @@ LENS_ORDER = [
 def horizontal_bar_chart(
     scores: dict[str, float | None],
     *,
-    width: int = 480,
-    bar_height: int = 32,
+    width: int = 340,
+    bar_height: int = 28,
     max_score: float = 20.0,
-    accent: str = ACCENT,
+    use_lens_colors: bool = True,
     pending_color: str = GRAY_LIGHT,
 ) -> str:
     """Generate a horizontal bar chart for a single site's lens scores.
+
+    Each bar is colored with its respective lens color.
 
     Args:
         scores: Dict mapping lens key to score (None = pending/not scored).
         width: Total SVG width.
         bar_height: Height of each bar.
         max_score: Maximum score per lens.
-        accent: Fill color for scored bars.
+        use_lens_colors: Whether to use per-lens colors.
         pending_color: Fill color for pending bars.
 
     Returns:
         SVG string.
     """
-    label_width = 130
-    chart_width = width - label_width - 60  # leave room for score text
-    row_height = bar_height + 20
+    label_width = 100
+    score_width = 60
+    chart_width = width - label_width - score_width
+    row_height = bar_height + 16
     total_height = row_height * len(LENS_ORDER) + 10
 
     lines: list[str] = []
@@ -101,13 +306,14 @@ def horizontal_bar_chart(
         y = i * row_height + 10
         score = scores.get(lens_key)
         is_pending = score is None
+        color = LENS_COLORS.get(lens_key, ACCENT) if use_lens_colors else ACCENT
 
         # Label
         label = LENS_LABELS_SHORT.get(lens_key, lens_key)
         lines.append(
-            f'<text x="{label_width - 10}" y="{y + bar_height // 2 + 5}" '
+            f'<text x="{label_width - 12}" y="{y + bar_height // 2 + 4}" '
             f'text-anchor="end" '
-            f'font-family="Inter, system-ui, sans-serif" font-size="13" '
+            f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" '
             f'font-weight="500" fill="{NAVY}">{label}</text>'
         )
 
@@ -119,10 +325,9 @@ def horizontal_bar_chart(
         )
 
         if is_pending:
-            # Pending state — hatched pattern
             lines.append(
-                f'<text x="{label_width + chart_width + 8}" y="{y + bar_height // 2 + 5}" '
-                f'font-family="Inter, system-ui, sans-serif" font-size="12" '
+                f'<text x="{label_width + chart_width + 10}" y="{y + bar_height // 2 + 4}" '
+                f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" '
                 f'fill="{GRAY_MID}">Pending</text>'
             )
         else:
@@ -131,13 +336,15 @@ def horizontal_bar_chart(
             lines.append(
                 f'<rect x="{label_width}" y="{y}" '
                 f'width="{bar_w}" height="{bar_height}" '
-                f'rx="4" fill="{accent}" />'
+                f'rx="4" fill="{color}" />'
             )
-            # Score text
+            # Score text: "14 /20" with score bold
             lines.append(
-                f'<text x="{label_width + chart_width + 8}" y="{y + bar_height // 2 + 5}" '
-                f'font-family="Inter, system-ui, sans-serif" font-size="13" '
-                f'font-weight="600" fill="{NAVY}">{score:.1f}</text>'
+                f'<text x="{label_width + chart_width + 10}" y="{y + bar_height // 2 + 4}" '
+                f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" '
+                f'fill="{NAVY}">'
+                f'<tspan font-weight="700">{score:.0f}</tspan>'
+                f'<tspan fill="{GRAY_TEXT}"> /20</tspan></text>'
             )
 
     lines.append("</svg>")
@@ -193,11 +400,10 @@ def grouped_bar_chart(
         lines.append(
             f'<rect x="{lx}" y="6" width="12" height="12" rx="2" fill="{color}" />'
         )
-        # Truncate label for display
         display_label = label if len(label) <= 28 else label[:25] + "..."
         lines.append(
             f'<text x="{lx + 18}" y="16" '
-            f'font-family="Inter, system-ui, sans-serif" font-size="11" '
+            f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" '
             f'fill="{NAVY}">{_escape(display_label)}</text>'
         )
         lx += max(140, len(display_label) * 7 + 30)
@@ -207,13 +413,12 @@ def grouped_bar_chart(
     for lens_idx, lens_key in enumerate(LENS_ORDER):
         gy = y_offset + lens_idx * group_height
 
-        # Lens label
         label = LENS_LABELS_SHORT.get(lens_key, lens_key)
         label_y = gy + (n_sites * (bar_h + bar_gap)) // 2 + 4
         lines.append(
             f'<text x="{label_width - 10}" y="{label_y}" '
             f'text-anchor="end" '
-            f'font-family="Inter, system-ui, sans-serif" font-size="12" '
+            f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" '
             f'font-weight="500" fill="{NAVY}">{label}</text>'
         )
 
@@ -222,7 +427,6 @@ def grouped_bar_chart(
             score = scores.get(lens_key)
             color = SITE_COLORS[site_idx % len(SITE_COLORS)]
 
-            # Track
             lines.append(
                 f'<rect x="{label_width}" y="{by}" '
                 f'width="{chart_width}" height="{bar_h}" '
@@ -236,122 +440,12 @@ def grouped_bar_chart(
                     f'width="{bar_w}" height="{bar_h}" '
                     f'rx="3" fill="{color}" />'
                 )
-                # Score label at end of bar
                 tx = label_width + bar_w + 6
                 lines.append(
                     f'<text x="{tx}" y="{by + bar_h // 2 + 4}" '
-                    f'font-family="Inter, system-ui, sans-serif" font-size="10" '
+                    f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="10" '
                     f'font-weight="600" fill="{NAVY}">{score:.1f}</text>'
                 )
-
-    lines.append("</svg>")
-    return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# Radar / spider chart — single site
-# ---------------------------------------------------------------------------
-
-
-def radar_chart(
-    scores: dict[str, float | None],
-    *,
-    size: int = 280,
-    max_score: float = 20.0,
-    fill_color: str = ACCENT,
-) -> str:
-    """Generate a radar/spider chart for a single site's lens scores.
-
-    Args:
-        scores: Dict mapping lens key to score (None treated as 0).
-        size: Width and height of the SVG.
-        max_score: Maximum score per axis.
-        fill_color: Color of the filled polygon.
-
-    Returns:
-        SVG string.
-    """
-    cx, cy = size // 2, size // 2
-    radius = size // 2 - 40
-    n = len(LENS_ORDER)
-    angle_step = 2 * math.pi / n
-    # Start from top (- pi/2)
-    start_angle = -math.pi / 2
-
-    lines: list[str] = []
-    lines.append(
-        f'<svg xmlns="http://www.w3.org/2000/svg" '
-        f'width="{size}" height="{size}" '
-        f'viewBox="0 0 {size} {size}">'
-    )
-
-    # Grid rings
-    for ring in [0.25, 0.5, 0.75, 1.0]:
-        r = radius * ring
-        points = []
-        for i in range(n):
-            angle = start_angle + i * angle_step
-            px = cx + r * math.cos(angle)
-            py = cy + r * math.sin(angle)
-            points.append(f"{px:.1f},{py:.1f}")
-        lines.append(
-            f'<polygon points="{" ".join(points)}" '
-            f'fill="none" stroke="{GRAY_LIGHT}" stroke-width="1" />'
-        )
-
-    # Axis lines
-    for i in range(n):
-        angle = start_angle + i * angle_step
-        ex = cx + radius * math.cos(angle)
-        ey = cy + radius * math.sin(angle)
-        lines.append(
-            f'<line x1="{cx}" y1="{cy}" x2="{ex:.1f}" y2="{ey:.1f}" '
-            f'stroke="{GRAY_LIGHT}" stroke-width="1" />'
-        )
-
-    # Data polygon
-    data_points = []
-    for i, lens_key in enumerate(LENS_ORDER):
-        score = scores.get(lens_key) or 0
-        ratio = min(score / max_score, 1.0)
-        angle = start_angle + i * angle_step
-        px = cx + radius * ratio * math.cos(angle)
-        py = cy + radius * ratio * math.sin(angle)
-        data_points.append(f"{px:.1f},{py:.1f}")
-
-    lines.append(
-        f'<polygon points="{" ".join(data_points)}" '
-        f'fill="{fill_color}" fill-opacity="0.2" '
-        f'stroke="{fill_color}" stroke-width="2" />'
-    )
-
-    # Data dots and labels
-    for i, lens_key in enumerate(LENS_ORDER):
-        score = scores.get(lens_key) or 0
-        ratio = min(score / max_score, 1.0)
-        angle = start_angle + i * angle_step
-        px = cx + radius * ratio * math.cos(angle)
-        py = cy + radius * ratio * math.sin(angle)
-
-        lines.append(
-            f'<circle cx="{px:.1f}" cy="{py:.1f}" r="3" fill="{fill_color}" />'
-        )
-
-        # Label at outer edge
-        lx = cx + (radius + 22) * math.cos(angle)
-        ly = cy + (radius + 22) * math.sin(angle)
-        anchor = "middle"
-        if angle > 0.1 and angle < math.pi - 0.1:
-            anchor = "middle"
-        elif angle < -0.1:
-            anchor = "middle"
-
-        label = LENS_LABELS_SHORT.get(lens_key, lens_key)
-        lines.append(
-            f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="{anchor}" '
-            f'font-family="Inter, system-ui, sans-serif" font-size="10" '
-            f'font-weight="500" fill="{NAVY}">{label}</text>'
-        )
 
     lines.append("</svg>")
     return "\n".join(lines)
@@ -397,15 +491,9 @@ def quadrant_matrix(
 
     # Quadrant backgrounds
     quadrant_rects = [
-        # top-left: Quick Wins (low effort, high impact... actually no)
-        # Layout: x-axis = effort (left=low, right=high), y-axis = impact (bottom=low, top=high)
-        # Top-left = low effort, high impact = No-Brainers
         (margin_left, margin_top, cw // 2, ch // 2, Q_NO_BRAINER, "No-Brainers"),
-        # Top-right = high effort, high impact = Growth Moves
         (mid_x, margin_top, cw // 2, ch // 2, Q_GROWTH, "Growth Moves"),
-        # Bottom-left = low effort, low impact = Quick Wins
         (margin_left, mid_y, cw // 2, ch // 2, Q_QUICK_WIN, "Quick Wins"),
-        # Bottom-right = high effort, low impact = Transformational
         (mid_x, mid_y, cw // 2, ch // 2, Q_TRANSFORM, "Transformational"),
     ]
 
@@ -414,10 +502,9 @@ def quadrant_matrix(
             f'<rect x="{rx}" y="{ry}" width="{rw}" height="{rh}" '
             f'fill="{color}" fill-opacity="0.1" />'
         )
-        # Quadrant label
         lines.append(
             f'<text x="{rx + 12}" y="{ry + 22}" '
-            f'font-family="Inter, system-ui, sans-serif" font-size="12" '
+            f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" '
             f'font-weight="600" fill="{color}">{label}</text>'
         )
 
@@ -437,20 +524,19 @@ def quadrant_matrix(
     lines.append(
         f'<text x="{margin_left + cw // 2}" y="{height - 8}" '
         f'text-anchor="middle" '
-        f'font-family="Inter, system-ui, sans-serif" font-size="12" '
+        f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" '
         f'fill="{GRAY_TEXT}">Effort \u2192</text>'
     )
     lines.append(
         f'<text x="14" y="{margin_top + ch // 2}" '
         f'text-anchor="middle" '
-        f'font-family="Inter, system-ui, sans-serif" font-size="12" '
+        f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="12" '
         f'fill="{GRAY_TEXT}" '
         f'transform="rotate(-90, 14, {margin_top + ch // 2})">'
         f'Impact \u2192</text>'
     )
 
     # Plot recommendations as numbered dots
-    # Group by quadrant for positioning
     quadrant_map = {
         "no_brainer": (margin_left, margin_top, cw // 2, ch // 2),
         "growth_move": (mid_x, margin_top, cw // 2, ch // 2),
@@ -458,7 +544,6 @@ def quadrant_matrix(
         "transformational": (mid_x, mid_y, cw // 2, ch // 2),
     }
 
-    # Count items per quadrant for spacing
     by_quadrant: dict[str, list] = {}
     for rec in recommendations:
         q = rec.get("quadrant", "quick_win")
@@ -474,95 +559,20 @@ def quadrant_matrix(
 
         for idx, rec in enumerate(recs):
             dot_num += 1
-            # Position dots in a grid within the quadrant
             cols = min(3, len(recs))
             row = idx // cols
             col = idx % cols
             px = ax + 40 + col * (aw - 60) // max(cols, 1)
             py = ay + 44 + row * 40
 
-            # Dot
             lines.append(
-                f'<circle cx="{px}" cy="{py}" r="14" '
-                f'fill="{color}" />'
+                f'<circle cx="{px}" cy="{py}" r="14" fill="{color}" />'
             )
-            # Number
             lines.append(
                 f'<text x="{px}" y="{py + 4}" text-anchor="middle" '
-                f'font-family="Inter, system-ui, sans-serif" font-size="11" '
+                f'font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="11" '
                 f'font-weight="700" fill="{WHITE}">{dot_num}</text>'
             )
-
-    lines.append("</svg>")
-    return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# Score ring — large circular score display
-# ---------------------------------------------------------------------------
-
-
-def score_ring(
-    score: float,
-    max_score: float = 100.0,
-    *,
-    size: int = 160,
-    stroke_width: int = 10,
-    color: str = ACCENT,
-) -> str:
-    """Generate a circular score gauge.
-
-    Args:
-        score: Current score value.
-        max_score: Maximum possible score.
-        size: SVG width and height.
-        stroke_width: Ring stroke width.
-        color: Ring fill color.
-
-    Returns:
-        SVG string.
-    """
-    cx, cy = size // 2, size // 2
-    radius = (size - stroke_width * 2 - 10) // 2
-    circumference = 2 * math.pi * radius
-    ratio = min(score / max_score, 1.0)
-    dash = circumference * ratio
-    gap = circumference - dash
-
-    lines: list[str] = []
-    lines.append(
-        f'<svg xmlns="http://www.w3.org/2000/svg" '
-        f'width="{size}" height="{size}" '
-        f'viewBox="0 0 {size} {size}">'
-    )
-
-    # Background ring
-    lines.append(
-        f'<circle cx="{cx}" cy="{cy}" r="{radius}" '
-        f'fill="none" stroke="{GRAY_LIGHT}" stroke-width="{stroke_width}" />'
-    )
-
-    # Score ring
-    lines.append(
-        f'<circle cx="{cx}" cy="{cy}" r="{radius}" '
-        f'fill="none" stroke="{color}" stroke-width="{stroke_width}" '
-        f'stroke-dasharray="{dash:.1f} {gap:.1f}" '
-        f'stroke-linecap="round" '
-        f'transform="rotate(-90 {cx} {cy})" />'
-    )
-
-    # Score text
-    score_display = f"{score:.0f}" if score == int(score) else f"{score:.1f}"
-    lines.append(
-        f'<text x="{cx}" y="{cy - 2}" text-anchor="middle" '
-        f'font-family="Inter, system-ui, sans-serif" font-size="36" '
-        f'font-weight="600" fill="{NAVY}">{score_display}</text>'
-    )
-    lines.append(
-        f'<text x="{cx}" y="{cy + 18}" text-anchor="middle" '
-        f'font-family="Inter, system-ui, sans-serif" font-size="13" '
-        f'fill="{GRAY_TEXT}">/ {int(max_score)}</text>'
-    )
 
     lines.append("</svg>")
     return "\n".join(lines)

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Test full PDF render: adapter → renderer → PDF file."""
+"""Test full PDF render: adapter → renderer → PDF file.
+
+Exercises the same code path as the export endpoint:
+  build_analysis_run() → render_pdf() → PDF on disk.
+"""
 
 import os
 import sys
@@ -22,13 +26,28 @@ OUTPUT = "/tmp/retina_test_report.pdf"
 ASSETS = os.path.join(project_root, "assets")
 
 print("1. Building AnalysisRun...")
-run = build_analysis_run(PROJECT_ID)
-print(f"   Score: {run.primary_site.retina_score.total}, "
-      f"Lenses: {len(run.primary_site.retina_score.lens_scores)}, "
-      f"Recs: {len(run.ai_analysis.recommendations) if run.ai_analysis else 0}")
+result = build_analysis_run(PROJECT_ID)
+
+# Destructure the dict result
+analysis = result["analysis"]
+project_title = result.get("project_title")
+analyst_name = result.get("analyst_name")
+subdim_observations = result.get("subdim_observations")
+
+print(f"   Score: {analysis.primary_site.retina_score.total}, "
+      f"Lenses: {len(analysis.primary_site.retina_score.lens_scores)}, "
+      f"Recs: {len(analysis.ai_analysis.recommendations) if analysis.ai_analysis else 0}")
+print(f"   Project: {project_title}, Analyst: {analyst_name}")
 
 print("2. Rendering PDF...")
-path = render_pdf(run, OUTPUT, assets_dir=ASSETS)
+path = render_pdf(
+    analysis,
+    OUTPUT,
+    assets_dir=ASSETS,
+    project_title=project_title,
+    analyst_name=analyst_name,
+    subdim_observations=subdim_observations,
+)
 size = path.stat().st_size
 print(f"   PDF saved: {path} ({size:,} bytes)")
 print(f"\n   open {path}")
