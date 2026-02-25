@@ -1,5 +1,5 @@
-# Retina API — production dependencies for Vercel deployment
-# Generated from pyproject.toml direct dependencies
+# Retina API — lightweight dependencies for Vercel deployment
+# Excludes heavy dependencies like weasyprint and playwright
 
 # Web framework
 fastapi>=0.115
@@ -18,13 +18,11 @@ httpx>=0.27,<1.0
 # AI / LLM
 anthropic>=0.40,<1.0
 
-# PDF generation
-weasyprint>=60.0
-jinja2>=3.1,<4.0
+# Basic image processing (lighter than full PIL)
 pillow>=10.0
 
 # Supabase
 supabase>=2.0
 
-# Browser automation (screenshot capture)
-playwright>=1.40,<2.0
+# Template rendering (for basic HTML, not PDF)
+jinja2>=3.1,<4.0
