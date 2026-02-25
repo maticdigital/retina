@@ -19,8 +19,8 @@ from app.services.auth import sign_up
 
 
 def main() -> None:
-    email = "stilian@maticdigital.com"
-    name = "Stilian"
+    email = "josh@maticdigital.com"
+    name = "Josh Fuller"
     role = "owner"
     password = "12345"
 
