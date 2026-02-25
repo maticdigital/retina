@@ -33,6 +33,7 @@ _extra_origins = [o.strip() for o in _env_origins.split(",") if o.strip()]
 _vercel_pattern_origins = [
     "https://retina-pi.vercel.app",
     "https://retina-pi-git-frontend-wearematic.vercel.app",
+    "https://retina-git-frontend-wearematic.vercel.app",
 ]
 
 # For development, allow broader origins if ALLOW_ALL_ORIGINS is set
