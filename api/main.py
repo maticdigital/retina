@@ -69,7 +69,7 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "deployment": "vercel-lite"}
+    return {"status": "ok", "deployment": "vercel-lite", "cors": "enabled"}
 
 # ── Import routers with fallback handling ────────────────────────────────────
 
