@@ -1,45 +1,73 @@
 """Persistent archive state for projects.
 
-Stores archived project IDs in a JSON file on disk.
-This is a workaround because we can't ALTER TABLE on the hosted
-Supabase instance without Dashboard / direct-SQL access.
-
-When you gain DB access, run:
-    ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS archived boolean DEFAULT false;
-and replace this module with a simple column check.
+Uses Supabase database to store archived project status.
+This replaces the file-based storage which doesn't work in Vercel's read-only environment.
 """
 
 from __future__ import annotations
 
-import json
+import logging
 import threading
-from pathlib import Path
 
-_STORE_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "archived_projects.json"
+logger = logging.getLogger(__name__)
 _lock = threading.Lock()
 
+# In-memory cache for archived project IDs
+_archived_cache: set[str] | None = None
 
-def _ensure_dir() -> None:
-    _STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+def _get_supabase():
+    """Get Supabase client - import here to avoid circular imports."""
+    try:
+        from api.deps import get_supabase
+        return get_supabase()
+    except ImportError:
+        logger.error("Could not import Supabase client")
+        return None
 
 
 def _load() -> set[str]:
-    if not _STORE_PATH.exists():
-        return set()
+    """Load archived project IDs from database or cache."""
+    global _archived_cache
+    
+    if _archived_cache is not None:
+        return _archived_cache
+    
+    sb = _get_supabase()
+    if not sb:
+        logger.warning("No Supabase client available, using empty archive set")
+        _archived_cache = set()
+        return _archived_cache
+    
     try:
-        data = json.loads(_STORE_PATH.read_text())
-        return set(data) if isinstance(data, list) else set()
-    except (json.JSONDecodeError, OSError):
-        return set()
+        # Try to get archived status from a metadata table or use project status
+        resp = sb.table("projects").select("id").eq("status", "archived").execute()
+        archived_ids = {row["id"] for row in resp.data or []}
+        _archived_cache = archived_ids
+        return archived_ids
+    except Exception as e:
+        logger.warning("Failed to load archived projects from database: %s", e)
+        _archived_cache = set()
+        return _archived_cache
 
 
 def _save(ids: set[str]) -> None:
-    _ensure_dir()
-    _STORE_PATH.write_text(json.dumps(sorted(ids)))
+    """Save archived project IDs - update cache only in Vercel environment."""
+    global _archived_cache
+    _archived_cache = ids.copy()
 
 
 def archive_project(project_id: str) -> None:
-    """Mark a project as archived."""
+    """Mark a project as archived by updating database status."""
+    sb = _get_supabase()
+    if sb:
+        try:
+            sb.table("projects").update({"status": "archived"}).eq("id", project_id).execute()
+            logger.info("Project %s archived in database", project_id)
+        except Exception as e:
+            logger.error("Failed to archive project %s in database: %s", project_id, e)
+    
+    # Update cache
     with _lock:
         ids = _load()
         ids.add(project_id)
@@ -47,7 +75,16 @@ def archive_project(project_id: str) -> None:
 
 
 def unarchive_project(project_id: str) -> None:
-    """Remove archive flag from a project."""
+    """Remove archive flag from a project by updating database status."""
+    sb = _get_supabase()
+    if sb:
+        try:
+            sb.table("projects").update({"status": "active"}).eq("id", project_id).execute()
+            logger.info("Project %s unarchived in database", project_id)
+        except Exception as e:
+            logger.error("Failed to unarchive project %s in database: %s", project_id, e)
+    
+    # Update cache
     with _lock:
         ids = _load()
         ids.discard(project_id)
