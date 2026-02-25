@@ -86,8 +86,16 @@ def _run_export(project_id: str, job_id: str):
         # WeasyPrint native lib path — set before any import of renderer
         os.environ.setdefault("DYLD_LIBRARY_PATH", "/opt/homebrew/lib")
 
-        from api.services.pdf_adapter import build_analysis_run
-        from retina.report.renderer import render_pdf
+        # Try to import heavy dependencies, fall back to lite versions
+        try:
+            from api.services.pdf_adapter import build_analysis_run
+            from retina.report.renderer import render_pdf
+            heavy_deps_available = True
+        except ImportError:
+            logger.warning("Heavy dependencies not available, using lite versions")
+            from api.services.pdf_adapter_lite import build_analysis_run, render_pdf_lite as render_pdf
+            heavy_deps_available = False
+        
         from app.services.storage import upload_report_pdf
 
         # ── Step 1: Build AnalysisRun from Supabase data ─────────────
@@ -99,10 +107,11 @@ def _run_export(project_id: str, job_id: str):
             raise RuntimeError(f"Data adapter failed: {e}") from e
 
         # ── Step 2: Render PDF ───────────────────────────────────────
-        logger.info("Export %s: rendering PDF", job_id[:8])
+        mode = "full" if heavy_deps_available else "lite"
+        logger.info("Export %s: rendering PDF in %s mode", job_id[:8], mode)
         try:
             assets_dir = os.path.join(os.path.dirname(__file__), "..", "..", "assets")
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            with tempfile.NamedTemporaryFile(suffix=".pdf" if heavy_deps_available else ".txt", delete=False) as tmp:
                 tmp_path = tmp.name
 
             render_pdf(
@@ -114,7 +123,7 @@ def _run_export(project_id: str, job_id: str):
                 subdim_observations=result.get("subdim_observations"),
             )
             pdf_size = os.path.getsize(tmp_path)
-            logger.info("Export %s: PDF rendered (%d bytes)", job_id[:8], pdf_size)
+            logger.info("Export %s: %s report rendered (%d bytes)", job_id[:8], mode, pdf_size)
         except Exception as e:
             raise RuntimeError(f"PDF render failed: {e}") from e
 
