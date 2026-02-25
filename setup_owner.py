@@ -19,10 +19,10 @@ from app.services.auth import sign_up
 
 
 def main() -> None:
-    email = "josh@maticdigital.com"
-    name = "Josh Fuller"
+    email = "stilian@maticdigital.com"
+    name = "Stilian"
     role = "owner"
-    password = "maticretina"
+    password = "12345"
 
     print(f"Creating owner account: {email}")
     try:
