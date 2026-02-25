@@ -7,13 +7,19 @@ import streamlit as st
 from app.components.charts import lighthouse_gauge
 from app.components.explanations import (
     error_banner_html,
+    get_interpretation,
+    interpretation_html,
+    section_narrative_html,
     warning_banner_html,
     SEO_AUDIT_EXPLANATIONS,
 )
-from app.components.score_display import progress_bar_html
-from app.components.styles import COLORS, hex_to_rgba
+from app.components.score_display import lens_donut_svg, progress_bar_html, _read_lens_icon
+from app.components.styles import COLORS, LENS_COLORS, LENS_DEFINITIONS as STYLE_DEFS, hex_to_rgba
 
-# SEO score breakdown dimensions (removed accessibility — now in Performance)
+LENS_KEY = "seo_ai_visibility"
+LENS_TITLE = "SEO & AI Visibility"
+
+# SEO score breakdown dimensions
 SEO_BREAKDOWN = {
     "lighthouse_seo": ("Lighthouse SEO Score", 6),
     "structured_data": ("Structured Data", 3),
@@ -77,27 +83,37 @@ def _render_site_seo(sd: dict, is_primary: bool = True) -> None:
     url = sd.get("site_url", "Unknown")
     lh = sd.get("lighthouse_data", {})
     scores = sd.get("automated_scores", {})
+    interp = sd.get("interpretations") or {}
 
-    seo_data = scores.get("seo_ai_visibility", {})
+    seo_data = scores.get(LENS_KEY, {})
     breakdown = seo_data.get("breakdown", {})
+    lens_score = seo_data.get("score")
 
+    # --- Lens Header ---
     if is_primary:
-        st.markdown(
-            f"<p style='color:{COLORS['text_muted']};font-size:0.85rem;'>{url}</p>",
-            unsafe_allow_html=True,
-        )
+        _render_lens_header(lens_score)
+
+    # Section narrative
+    seo_narrative = (interp.get("seo", {}) or {}).get("section_narrative")
+    if seo_narrative:
+        st.markdown(section_narrative_html(seo_narrative), unsafe_allow_html=True)
 
     # Score breakdown bars
     if breakdown:
-        st.markdown("##### Score Breakdown")
+        st.markdown(
+            f"<p style='color:{COLORS['text']};font-size:1rem;font-weight:600;"
+            f"margin-bottom:0.5rem;'>Score Breakdown</p>",
+            unsafe_allow_html=True,
+        )
         for key, (label, max_val) in SEO_BREAKDOWN.items():
             val = breakdown.get(key, 0)
             st.markdown(progress_bar_html(val, max_val, label), unsafe_allow_html=True)
-        st.markdown("---")
+        st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
     # === Blended SEO Score Gauge ===
-    st.markdown("##### SEO Lighthouse Score")
     st.markdown(
+        f"<p style='color:{COLORS['text']};font-size:1rem;font-weight:600;"
+        f"margin-bottom:0.25rem;'>SEO Lighthouse Score</p>"
         f"<p style='color:{COLORS['text_dim']};font-size:0.78rem;margin-bottom:0.5rem;'>"
         "Mobile score is primary. Desktop shown when gap exceeds 15 points.</p>",
         unsafe_allow_html=True,
@@ -126,24 +142,63 @@ def _render_site_seo(sd: dict, is_primary: bool = True) -> None:
                             unsafe_allow_html=True,
                         )
 
-    st.markdown("---")
+        seo_interp = get_interpretation(interp, "seo.lighthouse_seo")
+        if seo_interp:
+            with col2:
+                st.markdown(interpretation_html(seo_interp), unsafe_allow_html=True)
 
-    # === Meta Title & Description — Show Actual Text ===
-    _render_meta_info(lh)
-    st.markdown("---")
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
-    # === Crawlability Checks — robots.txt, sitemap, crawlable ===
-    _render_crawlability(lh)
-    st.markdown("---")
+    # === Meta Title & Description ===
+    _render_meta_info(lh, interp)
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
+
+    # === Crawlability Checks ===
+    _render_crawlability(lh, interp)
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
     # === SEO Audit Results by Group ===
-    _render_audit_groups(lh)
+    _render_audit_groups(lh, interp)
 
 
-def _render_meta_info(lh: dict) -> None:
+def _render_lens_header(lens_score: float | None) -> None:
+    """Render the SEO lens header with icon + donut."""
+    color = LENS_COLORS.get(LENS_KEY, COLORS["accent"])
+    definition = STYLE_DEFS.get(LENS_KEY, "")
+    icon_svg = _read_lens_icon(LENS_KEY)
+
+    icon_html = ""
+    if icon_svg:
+        icon_html = f"<div style='width:28px;height:28px;flex-shrink:0;'>{icon_svg}</div>"
+
+    hdr_left, hdr_right = st.columns([3, 1])
+
+    with hdr_left:
+        st.markdown(
+            f"<div style='display:flex;align-items:center;gap:10px;margin-bottom:4px;'>"
+            f"{icon_html}"
+            f"<h2 style='color:{COLORS['text']};font-size:1.3rem;margin:0;font-weight:700;'>"
+            f"{LENS_TITLE}</h2></div>"
+            f"<p style='color:{COLORS['text_muted']};font-size:0.85rem;margin:0 0 1rem 0;'>"
+            f"{definition}</p>",
+            unsafe_allow_html=True,
+        )
+
+    with hdr_right:
+        if lens_score is not None:
+            st.markdown(
+                lens_donut_svg(lens_score, 20.0, color, size=100),
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
+
+def _render_meta_info(lh: dict, interp: dict | None = None) -> None:
     """Show meta title and description with length analysis."""
-    st.markdown("##### Meta Title & Description")
     st.markdown(
+        f"<p style='color:{COLORS['text']};font-size:1rem;font-weight:600;"
+        f"margin-bottom:0.25rem;'>Meta Title & Description</p>"
         f"<p style='color:{COLORS['text_dim']};font-size:0.78rem;margin-bottom:0.5rem;'>"
         "These are the most important on-page SEO elements. They appear in search results and directly "
         "impact click-through rates.</p>",
@@ -155,25 +210,21 @@ def _render_meta_info(lh: dict) -> None:
     title_audit = _find_audit(mobile_audits, "document-title")
     desc_audit = _find_audit(mobile_audits, "meta-description")
 
-    # Title
     _render_meta_card(
-        title_audit,
-        "Page Title",
-        "document-title",
+        title_audit, "Page Title", "document-title",
+        get_interpretation(interp, "seo.meta.document-title"),
     )
-
-    # Description
     _render_meta_card(
-        desc_audit,
-        "Meta Description",
-        "meta-description",
+        desc_audit, "Meta Description", "meta-description",
+        get_interpretation(interp, "seo.meta.meta-description"),
     )
 
 
-def _render_meta_card(audit: dict | None, label: str, audit_id: str) -> None:
+def _render_meta_card(audit: dict | None, label: str, audit_id: str, interp_data: dict | None = None) -> None:
     """Render a meta tag card with status and explanation."""
     score = audit.get("score") if audit else None
     display_val = audit.get("display_value", "") if audit else ""
+    from app.components.explanations import SEO_AUDIT_EXPLANATIONS
     explanation = SEO_AUDIT_EXPLANATIONS.get(audit_id, {})
     why_text = explanation.get("why", "")
 
@@ -201,23 +252,27 @@ def _render_meta_card(audit: dict | None, label: str, audit_id: str) -> None:
             f"<code>{display_val}</code></div>"
         )
 
+    if interp_data:
+        detail_html = interpretation_html(interp_data)
+    else:
+        detail_html = f"<div style='color:{COLORS['text_muted']};font-size:0.78rem;margin-top:6px;'>{why_text}</div>"
+
     st.markdown(
-        f"<div style='padding:12px 16px;margin:6px 0;background:{COLORS['bg_card']};"
-        f"border:1px solid {hex_to_rgba(color, 0.25)};border-radius:8px;"
-        f"box-shadow:{COLORS['shadow']};'>"
+        f"<div class='retina-card' style='border-left:3px solid {color};'>"
         f"<div style='display:flex;justify-content:space-between;align-items:center;'>"
         f"<span style='font-weight:600;color:{COLORS['text']};font-size:0.85rem;'>{label}</span>"
         f"<span style='color:{color};font-size:0.8rem;font-weight:600;'>{icon} {status}</span></div>"
-        f"<div style='color:{COLORS['text_muted']};font-size:0.78rem;margin-top:6px;'>{why_text}</div>"
+        f"{detail_html}"
         f"{display_html}</div>",
         unsafe_allow_html=True,
     )
 
 
-def _render_crawlability(lh: dict) -> None:
+def _render_crawlability(lh: dict, interp: dict | None = None) -> None:
     """Render crawlability checks with prominent warnings."""
-    st.markdown("##### Crawlability & Indexing")
     st.markdown(
+        f"<p style='color:{COLORS['text']};font-size:1rem;font-weight:600;"
+        f"margin-bottom:0.25rem;'>Crawlability & Indexing</p>"
         f"<p style='color:{COLORS['text_dim']};font-size:0.78rem;margin-bottom:0.5rem;'>"
         "These checks determine whether search engines can find, crawl, and index your pages.</p>",
         unsafe_allow_html=True,
@@ -240,8 +295,15 @@ def _render_crawlability(lh: dict) -> None:
         if score is None:
             continue
 
+        crawl_interp = get_interpretation(interp, f"seo.crawlability.{audit_id}")
+        from app.components.explanations import SEO_AUDIT_EXPLANATIONS
         explanation = SEO_AUDIT_EXPLANATIONS.get(audit_id, {})
         why_text = explanation.get("why", "")
+
+        if crawl_interp:
+            interp_block = interpretation_html(crawl_interp)
+        else:
+            interp_block = f"<div style='color:{COLORS['text_muted']};font-size:0.75rem;margin-top:2px;'>{why_text}</div>"
 
         if score >= 0.9:
             st.markdown(
@@ -249,18 +311,27 @@ def _render_crawlability(lh: dict) -> None:
                 f"border-left:3px solid {COLORS['success']};border-radius:6px;'>"
                 f"<span style='color:{COLORS['success']};font-weight:600;font-size:0.85rem;'>"
                 f"✓ {label}</span>"
-                f"<div style='color:{COLORS['text_muted']};font-size:0.75rem;margin-top:2px;'>{why_text}</div>"
+                f"{interp_block}"
                 "</div>",
                 unsafe_allow_html=True,
             )
         else:
-            st.markdown(
-                error_banner_html(label, why_text),
-                unsafe_allow_html=True,
-            )
+            if crawl_interp:
+                st.markdown(
+                    f"<div style='padding:12px 16px;margin:10px 0;background:{hex_to_rgba(COLORS['error'], 0.08)};"
+                    f"border:1px solid {hex_to_rgba(COLORS['error'], 0.2)};border-radius:8px;'>"
+                    f"<div style='color:{COLORS['error']};font-weight:600;font-size:0.9rem;'>✗ {label}</div>"
+                    f"{interp_block}</div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    error_banner_html(label, why_text),
+                    unsafe_allow_html=True,
+                )
 
 
-def _render_audit_groups(lh: dict) -> None:
+def _render_audit_groups(lh: dict, interp: dict | None = None) -> None:
     """Render SEO audit results organized by group with explanations."""
     mobile_audits = lh.get("mobile", {}).get("audits", [])
     if not mobile_audits:
@@ -271,9 +342,12 @@ def _render_audit_groups(lh: dict) -> None:
         )
         return
 
-    st.markdown("##### SEO Audit Details")
+    st.markdown(
+        f"<p style='color:{COLORS['text']};font-size:1rem;font-weight:600;"
+        f"margin-bottom:0.5rem;'>SEO Audit Details</p>",
+        unsafe_allow_html=True,
+    )
 
-    # Build audit lookup
     audit_lookup: dict[str, dict] = {}
     for a in mobile_audits:
         aid = a.get("id", "")
@@ -300,6 +374,13 @@ def _render_audit_groups(lh: dict) -> None:
             else:
                 passed = score >= 0.5
 
+            audit_interp = get_interpretation(interp, f"seo.audits.{audit_id}")
+            if not audit_interp:
+                audit_interp = get_interpretation(interp, f"seo.meta.{audit_id}")
+            if not audit_interp:
+                audit_interp = get_interpretation(interp, f"seo.crawlability.{audit_id}")
+
+            from app.components.explanations import SEO_AUDIT_EXPLANATIONS
             explanation = SEO_AUDIT_EXPLANATIONS.get(audit_id, {})
             why_text = explanation.get("why", "")
             display_name = explanation.get("name", audit_label)
@@ -327,7 +408,9 @@ def _render_audit_groups(lh: dict) -> None:
                 html += f'<span style="color:{COLORS["text_dim"]};font-size:0.75rem;margin-left:6px;">{display_val}</span>'
             html += '</span></div>'
 
-            if why_text:
+            if audit_interp:
+                html += interpretation_html(audit_interp)
+            elif why_text:
                 html += (
                     f'<div style="color:{COLORS["text_muted"]};font-size:0.72rem;'
                     f'margin-top:2px;line-height:1.4;">{why_text}</div>'

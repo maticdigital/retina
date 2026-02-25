@@ -24,9 +24,11 @@ def render() -> None:
         st.error("Access denied. Admin privileges required.")
         return
 
-    st.markdown("### Admin Panel")
     st.markdown(
-        f"<p style='color: {COLORS['text_muted']};'>Manage users and view system-wide data.</p>",
+        f"<h1 style='color:{COLORS['text']};font-size:1.6rem;margin:0 0 4px 0;'>"
+        f"Admin Panel</h1>"
+        f"<p style='color:{COLORS['text_muted']};font-size:0.88rem;margin:0 0 1.5rem 0;'>"
+        f"Manage users and view system-wide data.</p>",
         unsafe_allow_html=True,
     )
 
@@ -43,7 +45,7 @@ def _render_user_list(current_user: dict) -> None:
     """Render the user management list."""
     users = list_users()
 
-    # Summary
+    # Summary metrics
     total = len(users)
     active = sum(1 for u in users if u.get("is_active", True))
     owners = sum(1 for u in users if u.get("role") == "owner")
@@ -59,9 +61,9 @@ def _render_user_list(current_user: dict) -> None:
     with mc4:
         st.markdown(metric_card(str(admins), "Admins"), unsafe_allow_html=True)
 
-    st.markdown("<div style='height: 1rem'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
-    # User table
+    # User cards
     for u in users:
         uid = u["id"]
         is_self = uid == current_user.get("id")
@@ -73,16 +75,16 @@ def _render_user_list(current_user: dict) -> None:
                 name_display = u.get("name", "Unknown")
                 if is_self:
                     name_display += " (you)"
-                status_dot = "🟢" if is_active else "🔴"
+                status_dot = f'<span style="color:{COLORS["success"]};">●</span>' if is_active else f'<span style="color:{COLORS["error"]};">●</span>'
                 st.markdown(
                     f"{status_dot} **{name_display}**<br/>"
-                    f"<span style='color: {COLORS['text_muted']}; font-size: 0.8rem;'>{u.get('email', '')}</span>",
+                    f"<span style='color:{COLORS['text_muted']};font-size:0.8rem;'>{u.get('email', '')}</span>",
                     unsafe_allow_html=True,
                 )
             with c2:
                 role_display = u.get("role", "analyst").title()
                 st.markdown(
-                    f"<span style='color: {COLORS['text_muted']};'>{role_display}</span>",
+                    f"<span style='color:{COLORS['text_muted']};'>{role_display}</span>",
                     unsafe_allow_html=True,
                 )
             with c3:
@@ -129,7 +131,11 @@ def _render_user_list(current_user: dict) -> None:
 
 def _render_add_user(admin_role: str) -> None:
     """Render the add user form."""
-    st.markdown("#### Add New User")
+    st.markdown(
+        f"<p style='color:{COLORS['text']};font-size:1.1rem;font-weight:600;"
+        f"margin-bottom:0.75rem;'>Add New User</p>",
+        unsafe_allow_html=True,
+    )
 
     with st.form("add_user_form"):
         name = st.text_input("Full Name", placeholder="Jane Doe")

@@ -1,28 +1,65 @@
 """CSS styles for the Retina light theme — modern, minimal, card-based."""
 
 COLORS = {
-    "bg": "#F5F7FA",
+    "bg": "#F0F2F5",
     "bg_card": "#FFFFFF",
     "bg_hover": "#EDF0F7",
     "accent": "#076EFF",
     "accent_hover": "#0558CC",
     "accent_light": "#EBF2FF",
     "text": "#0A0A2E",
-    "text_muted": "#4A5568",
+    "text_muted": "#6B7280",
     "text_dim": "#94A3B8",
-    "success": "#10B981",
-    "warning": "#F59E0B",
-    "error": "#EF4444",
+    "success": "#00C864",
+    "warning": "#FFC800",
+    "error": "#FF4444",
     "border": "#E2E8F0",
-    "shadow": "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)",
+    "shadow": "0 1px 4px rgba(0,0,0,0.06)",
+}
+
+LENS_COLORS = {
+    "performance_technical_health": "#076EFF",
+    "seo_ai_visibility": "#00C864",
+    "brand_messaging": "#9B59B6",
+    "experience_design": "#E74C3C",
+    "conversion_strategy": "#FF8C00",
+}
+
+LENS_ICONS = {
+    "performance_technical_health": "assets/performance_icon.svg",
+    "seo_ai_visibility": "assets/seo_icon.svg",
+    "brand_messaging": "assets/brand_icon.svg",
+    "experience_design": "assets/experience_icon.svg",
+    "conversion_strategy": "assets/conversion_icon.svg",
+}
+
+LENS_LABELS = {
+    "performance_technical_health": "Performance & Platform",
+    "seo_ai_visibility": "SEO & AI Visibility",
+    "brand_messaging": "Brand & Messaging",
+    "experience_design": "Experience & Design",
+    "conversion_strategy": "Conversion & Strategy",
+}
+
+LENS_SHORT_LABELS = {
+    "performance_technical_health": "Performance",
+    "seo_ai_visibility": "SEO & AI",
+    "brand_messaging": "Brand",
+    "experience_design": "Experience",
+    "conversion_strategy": "Conversion",
+}
+
+LENS_DEFINITIONS = {
+    "performance_technical_health": "Speed, stability, code quality, and technical infrastructure.",
+    "seo_ai_visibility": "Discoverability to search engines and AI-driven platforms.",
+    "brand_messaging": "How clearly the website communicates who it's for and why it matters.",
+    "experience_design": "Intuitiveness, modernity, and intentionality of the digital experience.",
+    "conversion_strategy": "How effectively the site turns attention into action.",
 }
 
 
 def hex_to_rgba(hex_color: str, alpha: float) -> str:
-    """Convert a 6-char hex color to rgba() string.
-
-    Example: hex_to_rgba('#076EFF', 0.13) -> 'rgba(7, 110, 255, 0.13)'
-    """
+    """Convert a 6-char hex color to rgba() string."""
     h = hex_color.lstrip("#")
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return f"rgba({r}, {g}, {b}, {alpha})"
@@ -48,29 +85,41 @@ def inject_css() -> str:
         -moz-osx-font-smoothing: grayscale;
     }}
 
-    /* ======== SIDEBAR ======== */
+    /* ======== SIDEBAR — Narrow icon rail ======== */
     section[data-testid="stSidebar"] {{
         background-color: {COLORS['bg_card']};
         border-right: 1px solid {COLORS['border']};
+        width: 68px !important;
+        min-width: 68px !important;
+        max-width: 68px !important;
+    }}
+    section[data-testid="stSidebar"] > div:first-child {{
+        width: 68px !important;
+        padding: 0.75rem 0.5rem !important;
     }}
 
-    section[data-testid="stSidebar"] .stMarkdown h1 {{
-        font-size: 1rem;
-        letter-spacing: 0.05em;
-        color: {COLORS['text_dim']};
-        text-transform: uppercase;
-        margin-bottom: 0.5rem;
+    /* Hide sidebar collapse/expand control */
+    button[data-testid="stSidebarCollapsedControl"],
+    [data-testid="collapsedControl"] {{
+        display: none !important;
     }}
 
-    /* Sidebar buttons — ghost style */
+    /* Sidebar icon buttons */
     section[data-testid="stSidebar"] .stButton > button {{
         background: transparent !important;
         border: none !important;
         color: {COLORS['text_muted']} !important;
-        text-align: left !important;
-        font-weight: 500 !important;
-        padding: 0.6rem 1rem !important;
-        border-radius: 8px !important;
+        text-align: center !important;
+        font-size: 1.25rem !important;
+        padding: 0.5rem !important;
+        border-radius: 12px !important;
+        width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 auto 0.25rem auto !important;
         transition: all 0.15s !important;
     }}
     section[data-testid="stSidebar"] .stButton > button:hover {{
@@ -78,27 +127,58 @@ def inject_css() -> str:
         color: {COLORS['text']} !important;
     }}
 
+    /* Active sidebar button */
+    section[data-testid="stSidebar"] .stButton > button.sidebar-active,
+    section[data-testid="stSidebar"] .sidebar-active .stButton > button {{
+        background: #1A1A2E !important;
+        color: #FFFFFF !important;
+    }}
+
+    /* Sidebar logo */
+    .sidebar-logo {{
+        text-align: center;
+        padding: 0.5rem 0 1rem 0;
+    }}
+    .sidebar-logo svg {{
+        max-width: 36px;
+        height: auto;
+    }}
+
+    /* Sidebar user avatar */
+    .sidebar-avatar {{
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #1A1A2E;
+        color: #FFFFFF;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.8rem;
+        margin: 0 auto;
+        cursor: pointer;
+    }}
+
     /* ======== CARDS ======== */
     .retina-card {{
         background: {COLORS['bg_card']};
-        border: 1px solid {COLORS['border']};
         border-radius: 12px;
-        padding: 1.5rem;
+        padding: 24px;
         margin-bottom: 1rem;
         box-shadow: {COLORS['shadow']};
         transition: border-color 0.2s, box-shadow 0.2s;
+        border: none;
     }}
     .retina-card:hover {{
-        border-color: {hex_to_rgba(COLORS['accent'], 0.3)};
         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }}
 
     /* Metric card */
     .metric-card {{
         background: {COLORS['bg_card']};
-        border: 1px solid {COLORS['border']};
         border-radius: 12px;
-        padding: 1.25rem;
+        padding: 24px;
         text-align: center;
         box-shadow: {COLORS['shadow']};
     }}
@@ -114,15 +194,133 @@ def inject_css() -> str:
         margin-top: 0.25rem;
     }}
 
+    /* Project card (dashboard) */
+    .project-card {{
+        background: {COLORS['bg_card']};
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: {COLORS['shadow']};
+        transition: box-shadow 0.2s;
+        cursor: pointer;
+        position: relative;
+        min-height: 160px;
+    }}
+    .project-card:hover {{
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }}
+    .project-card .project-name {{
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: {COLORS['text']};
+        margin-bottom: 4px;
+    }}
+    .project-card .project-url {{
+        font-size: 0.8rem;
+        color: {COLORS['text_muted']};
+        margin-bottom: 12px;
+    }}
+    .project-card .project-score {{
+        font-size: 2rem;
+        font-weight: 700;
+        color: {COLORS['text']};
+    }}
+    .project-card .project-score-label {{
+        font-size: 0.75rem;
+        color: {COLORS['text_dim']};
+    }}
+    .project-card .project-arrow {{
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        color: {COLORS['text_dim']};
+        font-size: 1.1rem;
+    }}
+
+    /* Lens summary card */
+    .lens-card {{
+        background: {COLORS['bg_card']};
+        border-radius: 12px;
+        padding: 16px 20px;
+        box-shadow: {COLORS['shadow']};
+        margin-bottom: 0.5rem;
+        border-top: 3px solid transparent;
+        cursor: pointer;
+        transition: box-shadow 0.2s;
+    }}
+    .lens-card:hover {{
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }}
+    .lens-card .lens-name {{
+        font-weight: 600;
+        font-size: 0.88rem;
+        color: {COLORS['text']};
+    }}
+    .lens-card .lens-score {{
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: {COLORS['text']};
+    }}
+    .lens-card .lens-status {{
+        font-size: 0.75rem;
+        margin-top: 4px;
+    }}
+
+    /* Sub-dimension display card */
+    .subdim-card {{
+        background: {COLORS['bg_card']};
+        border-radius: 12px;
+        padding: 20px 24px;
+        box-shadow: {COLORS['shadow']};
+        margin-bottom: 0.75rem;
+    }}
+    .subdim-card .subdim-name {{
+        font-weight: 600;
+        font-size: 0.92rem;
+        color: {COLORS['text']};
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }}
+    .subdim-card .subdim-bar-track {{
+        background: {COLORS['border']};
+        border-radius: 6px;
+        height: 8px;
+        overflow: hidden;
+        margin-bottom: 6px;
+    }}
+    .subdim-card .subdim-bar-fill {{
+        background: {COLORS['accent']};
+        border-radius: 6px;
+        height: 100%;
+        transition: width 0.4s ease;
+    }}
+    .subdim-card .subdim-score {{
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: {COLORS['text']};
+        text-align: right;
+    }}
+    .subdim-card .subdim-guidance {{
+        font-size: 0.72rem;
+        color: {COLORS['text_dim']};
+        margin-top: 6px;
+    }}
+    .subdim-card .subdim-tooltip {{
+        color: {COLORS['text_dim']};
+        font-size: 0.8rem;
+        cursor: help;
+    }}
+
     /* ======== STATUS BADGES ======== */
     .badge {{
         display: inline-block;
         padding: 0.2rem 0.75rem;
         border-radius: 20px;
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.03em;
+        letter-spacing: 0.04em;
     }}
     .badge-draft {{
         background: {COLORS['bg_hover']};
@@ -138,35 +336,39 @@ def inject_css() -> str:
     }}
 
     /* ======== BUTTONS ======== */
-    .stButton > button {{
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.2s;
-        border: 1px solid {COLORS['border']};
-    }}
-    /* Primary buttons */
+    /* Primary — dark pill */
     .stButton > button[kind="primary"],
     .stFormSubmitButton > button[kind="primary"] {{
-        background-color: {COLORS['accent']} !important;
+        background-color: #1A1A2E !important;
         color: #FFFFFF !important;
         border: none !important;
-        padding: 0.5rem 1.25rem !important;
-        box-shadow: 0 1px 2px rgba(7, 110, 255, 0.2) !important;
+        border-radius: 999px !important;
+        padding: 0.5rem 1.5rem !important;
+        height: 40px !important;
+        font-weight: 600 !important;
+        box-shadow: none !important;
+        transition: all 0.2s !important;
     }}
     .stButton > button[kind="primary"]:hover,
     .stFormSubmitButton > button[kind="primary"]:hover {{
-        background-color: {COLORS['accent_hover']} !important;
-        box-shadow: 0 2px 8px rgba(7, 110, 255, 0.3) !important;
+        background-color: #0A0A1E !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
     }}
-    /* Secondary buttons */
-    .stButton > button[kind="secondary"] {{
+
+    /* Secondary — white pill */
+    .stButton > button[kind="secondary"],
+    .stButton > button {{
         background: {COLORS['bg_card']} !important;
         border: 1px solid {COLORS['border']} !important;
+        border-radius: 999px !important;
         color: {COLORS['text_muted']} !important;
+        font-weight: 500 !important;
+        padding: 0.4rem 1.25rem !important;
+        transition: all 0.2s !important;
     }}
-    .stButton > button[kind="secondary"]:hover {{
-        background: {COLORS['bg_hover']} !important;
-        border-color: {COLORS['accent']} !important;
+    .stButton > button[kind="secondary"]:hover,
+    .stButton > button:hover {{
+        border-color: {COLORS['text_muted']} !important;
         color: {COLORS['text']} !important;
     }}
 
@@ -184,7 +386,6 @@ def inject_css() -> str:
         box-shadow: 0 0 0 2px {hex_to_rgba(COLORS['accent'], 0.15)} !important;
     }}
 
-    /* Select boxes */
     .stSelectbox > div > div {{
         background-color: {COLORS['bg_card']} !important;
         border-color: {COLORS['border']} !important;
@@ -194,86 +395,38 @@ def inject_css() -> str:
     /* ======== TABS ======== */
     .stTabs [data-baseweb="tab-list"] {{
         gap: 0;
-        background-color: {COLORS['bg']};
-        border-radius: 10px;
-        padding: 4px;
-        border: 1px solid {COLORS['border']};
+        background-color: transparent;
+        border-bottom: 2px solid {COLORS['border']};
+        border-radius: 0;
+        padding: 0;
     }}
     .stTabs [data-baseweb="tab"] {{
-        border-radius: 8px;
-        padding: 8px 16px;
+        border-radius: 0;
+        padding: 10px 20px;
         color: {COLORS['text_muted']};
         font-weight: 500;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
     }}
     .stTabs [data-baseweb="tab"]:hover {{
         color: {COLORS['text']};
-        background: {COLORS['bg_hover']};
+        background: transparent;
     }}
     .stTabs [aria-selected="true"] {{
-        background-color: {COLORS['accent']} !important;
-        color: #FFFFFF !important;
+        background-color: transparent !important;
+        color: {COLORS['text']} !important;
         font-weight: 600;
+        border-bottom: 2px solid #1A1A2E !important;
     }}
-    /* Remove default tab underline */
     .stTabs [data-baseweb="tab-highlight"],
     .stTabs [data-baseweb="tab-border"] {{
         display: none !important;
-    }}
-
-    /* ======== PROJECT LIST ROW ======== */
-    .project-row {{
-        background: {COLORS['bg_card']};
-        border: 1px solid {COLORS['border']};
-        border-radius: 10px;
-        padding: 1rem 1.25rem;
-        margin-bottom: 0.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        cursor: pointer;
-        transition: all 0.2s;
-        box-shadow: {COLORS['shadow']};
-    }}
-    .project-row:hover {{
-        border-color: {COLORS['accent']};
-        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
     }}
 
     /* ======== DIVIDERS ======== */
     hr {{
         border-color: {COLORS['border']} !important;
         margin: 1.5rem 0 !important;
-    }}
-
-    /* ======== LOGO ======== */
-    .sidebar-logo {{
-        padding: 1rem 0 1.5rem 0;
-        text-align: center;
-    }}
-    .sidebar-logo svg {{
-        max-width: 160px;
-        height: auto;
-    }}
-
-    /* ======== NAV ITEMS ======== */
-    .nav-item {{
-        padding: 0.6rem 1rem;
-        border-radius: 8px;
-        margin-bottom: 0.25rem;
-        cursor: pointer;
-        color: {COLORS['text_muted']};
-        transition: all 0.15s;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }}
-    .nav-item:hover {{
-        background: {COLORS['bg_hover']};
-        color: {COLORS['text']};
-    }}
-    .nav-item.active {{
-        background: {COLORS['accent_light']};
-        color: {COLORS['accent']};
     }}
 
     /* ======== TECH TAGS ======== */
@@ -287,8 +440,7 @@ def inject_css() -> str:
     /* ======== AUDIT SECTIONS ======== */
     .audit-section {{
         background: {COLORS['bg_card']};
-        border: 1px solid {COLORS['border']};
-        border-radius: 10px;
+        border-radius: 12px;
         overflow: hidden;
         margin-bottom: 1rem;
         box-shadow: {COLORS['shadow']};
@@ -302,28 +454,6 @@ def inject_css() -> str:
         text-transform: uppercase;
         letter-spacing: 0.04em;
         border-bottom: 1px solid {COLORS['border']};
-    }}
-
-    /* ======== SLIDER LABELS ======== */
-    .stSlider label {{
-        color: {COLORS['text']} !important;
-    }}
-
-    /* ======== ANALYST WORKSPACE ======== */
-    .workspace-section {{
-        background: {COLORS['bg_card']};
-        border: 1px solid {COLORS['border']};
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 1.25rem;
-        box-shadow: {COLORS['shadow']};
-    }}
-    .workspace-section h4 {{
-        color: {COLORS['text_dim']};
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 1rem;
     }}
 
     /* ======== CHECKLIST ======== */
@@ -360,11 +490,102 @@ def inject_css() -> str:
         border: 1px solid {COLORS['border']} !important;
         background: {COLORS['bg_card']} !important;
         color: {COLORS['text_muted']} !important;
-        border-radius: 8px !important;
+        border-radius: 999px !important;
     }}
     .stDownloadButton > button:hover {{
-        border-color: {COLORS['accent']} !important;
-        color: {COLORS['accent']} !important;
+        border-color: {COLORS['text_muted']} !important;
+        color: {COLORS['text']} !important;
+    }}
+
+    /* ======== FOOTER ======== */
+    .retina-footer {{
+        text-align: center;
+        padding: 1.5rem 0;
+        margin-top: 3rem;
+        border-top: 1px solid {COLORS['border']};
+    }}
+    .retina-footer svg {{
+        height: 18px;
+        vertical-align: middle;
+        margin-left: 6px;
+        opacity: 0.6;
+    }}
+    .retina-footer span {{
+        color: {COLORS['text_dim']};
+        font-size: 0.78rem;
+    }}
+
+    /* ======== COPILOT PLACEHOLDER ======== */
+    .copilot-bar {{
+        background: {COLORS['bg_card']};
+        border: 1px solid {COLORS['border']};
+        border-radius: 12px;
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 2rem;
+    }}
+    .copilot-bar input {{
+        flex: 1;
+        border: none;
+        outline: none;
+        font-size: 0.9rem;
+        color: {COLORS['text_dim']};
+        background: transparent;
+    }}
+    .copilot-label {{
+        font-size: 0.75rem;
+        color: {COLORS['text_dim']};
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }}
+    .copilot-badge {{
+        background: {COLORS['bg_hover']};
+        color: {COLORS['text_dim']};
+        font-size: 0.65rem;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }}
+
+    /* ======== QUICK START PANEL ======== */
+    .quick-start-step {{
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid {COLORS['border']};
+    }}
+    .quick-start-step:last-child {{
+        border-bottom: none;
+    }}
+    .quick-start-num {{
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: {COLORS['bg_hover']};
+        color: {COLORS['text']};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.8rem;
+        flex-shrink: 0;
+    }}
+    .quick-start-title {{
+        font-weight: 600;
+        font-size: 0.88rem;
+        color: {COLORS['text']};
+    }}
+    .quick-start-desc {{
+        font-size: 0.8rem;
+        color: {COLORS['text_muted']};
+        margin-top: 2px;
     }}
 </style>
 """

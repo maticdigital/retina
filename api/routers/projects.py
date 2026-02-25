@@ -10,6 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, File
 
 from api.deps import CurrentUser, get_supabase
 from app.services.pipeline_status import create_run, get_run
+from app.services.projects import recalculate_scores
 from app.services.archive_store import (
     archive_project as _archive,
     unarchive_project as _unarchive,
@@ -76,6 +77,7 @@ class ProjectSummary(BaseModel):
     screenshot_url: str | None = None
     retina_score: float | None = None
     lens_scores: list[LensScore] = []
+    tech_stack: dict[str, list[str]] | None = None
     competitors: list[CompetitorSummary] = []
     recommendations: list[RecommendationQuadrant] = []
 
@@ -128,10 +130,9 @@ def list_projects(user: CurrentUser, include_archived: bool = False):
 
 
 @router.post("", response_model=ProjectOut, status_code=201)
-def create_project(
+async def create_project(
     body: CreateProjectRequest,
     user: CurrentUser,
-    background_tasks: BackgroundTasks,
 ):
     """Create a new project and immediately trigger the analysis pipeline."""
     sb = get_supabase()
@@ -154,11 +155,9 @@ def create_project(
 
     # Create pipeline status tracker and launch background pipeline
     create_run(project_id)
-    background_tasks.add_task(
-        _run_pipeline_background,
-        project_id,
-        body.primary_url,
-        body.competitor_urls,
+    import asyncio
+    asyncio.ensure_future(
+        _run_pipeline_background_async(project_id, body.primary_url, body.competitor_urls)
     )
 
     return project
@@ -282,16 +281,35 @@ def _generate_recs_background(project_id: str) -> None:
     from app.services.recommendations import generate_recommendations
 
     try:
+        # Recalculate scores first so recommendations see correct totals
+        recalculate_scores(project_id)
         generate_recommendations(project_id)
         logger.info("Recommendations generated for project %s", project_id)
     except Exception:
         logger.exception("Recommendation generation failed for project %s", project_id)
 
 
+async def _run_pipeline_background_async(
+    project_id: str, primary_url: str, competitor_urls: list[str]
+) -> None:
+    """Run the analysis pipeline as an async task on the main event loop.
+
+    Using async instead of sync-in-thread because Chromium subprocesses
+    crash ("Target crashed") when launched from background thread contexts.
+    Running on the main event loop avoids this issue.
+    """
+    from app.services.pipeline import run_analysis
+
+    try:
+        await run_analysis(project_id, primary_url, competitor_urls)
+    except Exception:
+        logger.exception("Background pipeline failed for project %s", project_id)
+
+
 def _run_pipeline_background(
     project_id: str, primary_url: str, competitor_urls: list[str]
 ) -> None:
-    """Run the analysis pipeline in a background thread."""
+    """Run the analysis pipeline in a background thread (legacy)."""
     from app.services.pipeline import run_analysis_sync
 
     try:
@@ -446,10 +464,9 @@ def get_project_status(project_id: str, user: CurrentUser):
 
 
 @router.post("/{project_id}/retry", response_model=PipelineStatusOut)
-def retry_pipeline(
+async def retry_pipeline(
     project_id: str,
     user: CurrentUser,
-    background_tasks: BackgroundTasks,
 ):
     """Re-trigger the pipeline for a project after an error."""
     sb = get_supabase()
@@ -462,20 +479,17 @@ def retry_pipeline(
 
     # Reset and re-trigger
     run = create_run(project_id)
-    background_tasks.add_task(
-        _run_pipeline_background,
-        project_id,
-        project["primary_url"],
-        project.get("competitor_urls", []),
+    import asyncio
+    asyncio.ensure_future(
+        _run_pipeline_background_async(project_id, project["primary_url"], project.get("competitor_urls", []))
     )
     return run.to_dict()
 
 
 @router.post("/{project_id}/refresh")
-def refresh_project(
+async def refresh_project(
     project_id: str,
     user: CurrentUser,
-    background_tasks: BackgroundTasks,
 ):
     """Re-run full analysis pipeline for a project."""
     sb = get_supabase()
@@ -488,13 +502,137 @@ def refresh_project(
 
     # Reset status and re-trigger
     run = create_run(project_id)
-    background_tasks.add_task(
-        _run_pipeline_background,
-        project_id,
-        project["primary_url"],
-        project.get("competitor_urls", []),
+    import asyncio
+    asyncio.ensure_future(
+        _run_pipeline_background_async(project_id, project["primary_url"], project.get("competitor_urls", []))
     )
     return run.to_dict()
+
+
+# ── Screenshot upload / delete ─────────────────────────────────────────────
+
+
+@router.post("/{project_id}/screenshot")
+async def upload_project_screenshot(
+    project_id: str,
+    user: CurrentUser,
+    file: UploadFile = File(...),
+):
+    """Upload or replace the project screenshot."""
+    import os
+    import uuid as _uuid
+
+    # Validate file type
+    allowed = {"image/png", "image/jpeg", "image/webp"}
+    ct = file.content_type or ""
+    if ct not in allowed:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {ct}")
+
+    sb = get_supabase()
+
+    # Verify project exists and user has access
+    proj_resp = sb.table("projects").select("id, created_by").eq("id", project_id).execute()
+    if not proj_resp.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+    project = proj_resp.data[0]
+    if user["role"] == "analyst" and project["created_by"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Delete old screenshot if exists
+    data_resp = (
+        sb.table("project_data")
+        .select("screenshot_paths")
+        .eq("project_id", project_id)
+        .execute()
+    )
+    if data_resp.data:
+        old_paths = data_resp.data[0].get("screenshot_paths") or {}
+        if isinstance(old_paths, dict):
+            for key in ("viewport", "full_page"):
+                old_url = old_paths.get(key)
+                if old_url and "supabase" in old_url:
+                    # Extract storage path from URL
+                    try:
+                        path_part = old_url.split("/screenshots/", 1)[1]
+                        sb.storage.from_("screenshots").remove([path_part])
+                    except Exception:
+                        pass  # Best-effort deletion
+
+    # Upload new file
+    content = await file.read()
+    ext_map = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
+    ext = ext_map.get(ct, ".png")
+    remote_name = f"{_uuid.uuid4().hex}{ext}"
+    remote_path = f"{project_id}/{remote_name}"
+
+    sb.storage.from_("screenshots").upload(
+        path=remote_path,
+        file=content,
+        file_options={"content-type": ct},
+    )
+    public_url = sb.storage.from_("screenshots").get_public_url(remote_path)
+
+    # Update project_data with new screenshot path
+    new_paths = {"viewport": public_url}
+    existing = (
+        sb.table("project_data")
+        .select("project_id")
+        .eq("project_id", project_id)
+        .execute()
+    )
+    if existing.data:
+        sb.table("project_data").update(
+            {"screenshot_paths": new_paths}
+        ).eq("project_id", project_id).execute()
+    else:
+        sb.table("project_data").insert(
+            {"project_id": project_id, "site_url": "", "screenshot_paths": new_paths}
+        ).execute()
+
+    return {"screenshot_url": public_url}
+
+
+@router.delete("/{project_id}/screenshot")
+def delete_project_screenshot(
+    project_id: str,
+    user: CurrentUser,
+):
+    """Remove the project screenshot."""
+    sb = get_supabase()
+
+    # Verify project exists and user has access
+    proj_resp = sb.table("projects").select("id, created_by").eq("id", project_id).execute()
+    if not proj_resp.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+    project = proj_resp.data[0]
+    if user["role"] == "analyst" and project["created_by"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Get current screenshot paths
+    data_resp = (
+        sb.table("project_data")
+        .select("screenshot_paths")
+        .eq("project_id", project_id)
+        .execute()
+    )
+    if data_resp.data:
+        old_paths = data_resp.data[0].get("screenshot_paths") or {}
+        if isinstance(old_paths, dict):
+            for key in ("viewport", "full_page"):
+                old_url = old_paths.get(key)
+                if old_url and "supabase" in old_url:
+                    try:
+                        path_part = old_url.split("/screenshots/", 1)[1]
+                        sb.storage.from_("screenshots").remove([path_part])
+                    except Exception:
+                        pass
+
+        # Clear screenshot_paths
+        sb.table("project_data").update(
+            {"screenshot_paths": {}}
+        ).eq("project_id", project_id).execute()
+
+    return {"ok": True}
 
 
 LENS_MAP = {
@@ -597,12 +735,12 @@ def get_project_summary(project_id: str, user: CurrentUser):
         })
 
     # ── Retina score ──────────────────────────────────────────────────────
-    retina_score = report.get("retina_score")
-    if retina_score is None:
-        # Calculate from lens scores if available
-        scored = [ls["score"] for ls in lens_scores if ls["score"] is not None]
-        if scored:
-            retina_score = round(sum(scored), 2)
+    # Always compute from live lens scores (never trust stale DB value)
+    scored = [ls["score"] for ls in lens_scores if ls["score"] is not None]
+    retina_score = round(sum(scored), 2) if scored else report.get("retina_score")
+
+    # ── Technology Stack ────────────────────────────────────────────────
+    tech_stack = _extract_tech_stack(project_data.get("builtwith_data") or {})
 
     # ── Competitors ───────────────────────────────────────────────────────
     competitors = [
@@ -631,9 +769,86 @@ def get_project_summary(project_id: str, user: CurrentUser):
         "screenshot_url": screenshot_url,
         "retina_score": retina_score,
         "lens_scores": lens_scores,
+        "tech_stack": tech_stack,
         "competitors": competitors,
         "recommendations": recs,
     }
+
+
+def _extract_tech_stack(builtwith_data: dict) -> dict[str, list[str]]:
+    """Extract key technology stack info from BuiltWith data for the summary page.
+
+    Only surfaces CMS, Analytics, and CRM — the high-level business tools.
+    Framework, hosting, CDN, etc. live on the Performance lens detail page.
+    """
+    techs = builtwith_data.get("technologies") or []
+    if not techs:
+        return {}
+
+    # Category mapping: BuiltWith category name → our display category
+    CATEGORY_MAP = {
+        # CMS / Headless
+        "Hosted Solution": "cms",
+        "Headless": "cms",
+        "Enterprise": "cms",
+        # Analytics
+        "Audience Measurement": "analytics",
+        "Visitor Count Tracking": "analytics",
+        "Tag Management": "analytics",
+        # CRM / Marketing
+        "Feedback Forms and Surveys": "crm",
+        "Transactional Email": "crm",
+    }
+
+    # Known technologies to force-categorize (override for common ones)
+    NAME_OVERRIDES = {
+        "Webflow": "cms",
+        "WordPress": "cms",
+        "Contentful": "cms",
+        "Shopify": "cms",
+        "Squarespace": "cms",
+        "Wix": "cms",
+        "Drupal": "cms",
+        "HubSpot": "crm",
+        "Salesforce": "crm",
+        "Marketo": "crm",
+        "Pardot": "crm",
+        "Mailchimp": "crm",
+        "ActiveCampaign": "crm",
+        "Google Analytics": "analytics",
+        "Google Analytics 4": "analytics",
+        "Google Tag Manager": "analytics",
+        "Hotjar": "analytics",
+        "Mixpanel": "analytics",
+        "Segment": "analytics",
+    }
+
+    result: dict[str, set[str]] = {}
+    seen_names: set[str] = set()
+
+    for tech in techs:
+        name = tech.get("name", "").strip()
+        if not name:
+            continue
+
+        # Check name overrides first
+        cat = NAME_OVERRIDES.get(name)
+        if cat:
+            if name not in seen_names:
+                result.setdefault(cat, set()).add(name)
+                seen_names.add(name)
+            continue
+
+        # Check category mapping
+        for bw_cat in tech.get("categories", []):
+            cat = CATEGORY_MAP.get(bw_cat)
+            if cat and name not in seen_names:
+                result.setdefault(cat, set()).add(name)
+                seen_names.add(name)
+                break
+
+    # Convert sets to sorted lists, limit each category
+    return {k: sorted(v)[:8] for k, v in result.items() if v}
 
 
 LENS_COLORS = {
@@ -976,6 +1191,9 @@ def update_subdimension(
             "lens_name": lens_id,
             "sub_scores": sub_scores,
         }).execute()
+
+    # Recalculate composite Retina Score
+    recalculate_scores(project_id)
 
     return {"ok": True}
 

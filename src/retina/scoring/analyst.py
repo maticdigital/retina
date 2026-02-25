@@ -28,25 +28,42 @@ logger = logging.getLogger(__name__)
 
 LENS_DEFINITIONS: dict[str, dict[str, float]] = {
     "brand_messaging": {
-        "brand_clarity_consistency": 5.0,
-        "value_proposition_strength": 5.0,
-        "content_quality_tone": 5.0,
-        "visual_identity_differentiation": 5.0,
+        "brand_visual_language": 5.0,
+        "brand_voice_messaging": 5.0,
+        "value_proposition": 5.0,
+        "brand_differentiation": 5.0,
     },
     "experience_design": {
-        "visual_design_quality": 4.0,
-        "navigation_information_architecture": 4.0,
-        "interaction_design_micro_interactions": 4.0,
-        "responsiveness_cross_device": 4.0,
-        "content_layout_readability": 4.0,
+        "interface_design": 5.0,
+        "content_taxonomy": 5.0,
+        "navigation_architecture": 5.0,
+        "responsiveness": 5.0,
     },
     "conversion_strategy": {
-        "cta_effectiveness": 4.0,
-        "user_journey_funnel_design": 4.0,
-        "trust_signals_social_proof": 4.0,
-        "lead_capture_form_design": 4.0,
-        "strategic_positioning_vs_competitors": 4.0,
+        "call_to_action_logic": 5.0,
+        "lead_capture_form_design": 5.0,
+        "trust_signals": 5.0,
+        "funnel_design": 5.0,
     },
+}
+
+# Migration map: old sub-dimension key → new key (for database migration)
+_OLD_TO_NEW_SUBDIM: dict[str, str] = {
+    # Brand
+    "brand_clarity_consistency": "brand_visual_language",
+    "value_proposition_strength": "value_proposition",
+    "content_quality_tone": "brand_voice_messaging",
+    "visual_identity_differentiation": "brand_differentiation",
+    # Experience (5→4: interaction_design_micro_interactions is dropped)
+    "visual_design_quality": "interface_design",
+    "navigation_information_architecture": "navigation_architecture",
+    "responsiveness_cross_device": "responsiveness",
+    "content_layout_readability": "content_taxonomy",
+    # Conversion (5→4: strategic_positioning_vs_competitors is dropped)
+    "cta_effectiveness": "call_to_action_logic",
+    "user_journey_funnel_design": "funnel_design",
+    "trust_signals_social_proof": "trust_signals",
+    # lead_capture_form_design stays the same
 }
 
 LENS_TYPE_MAP: dict[str, ScoringLensType] = {

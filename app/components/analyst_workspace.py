@@ -1,4 +1,4 @@
-"""Shared analyst scoring workspace — sliders, observations, screenshots, auto-save, AI re-evaluate."""
+"""Shared analyst scoring workspace — display-only cards, observations, screenshots, auto-save, AI re-evaluate."""
 
 from __future__ import annotations
 
@@ -11,8 +11,12 @@ from typing import Any
 
 import streamlit as st
 
-from app.components.score_display import progress_bar_html, save_indicator, score_ring_html
-from app.components.styles import COLORS, hex_to_rgba
+from app.components.score_display import (
+    lens_donut_svg,
+    save_indicator,
+    subdim_card_html,
+)
+from app.components.styles import COLORS, LENS_COLORS, LENS_DEFINITIONS as STYLE_LENS_DEFS
 from app.services.projects import upsert_analyst_score
 from app.services.storage import upload_screenshot
 
@@ -20,20 +24,18 @@ logger = logging.getLogger(__name__)
 
 # Human-readable labels for sub-dimensions
 DIMENSION_LABELS = {
-    "brand_clarity_consistency": "Brand Clarity & Consistency",
-    "value_proposition_strength": "Value Proposition Strength",
-    "content_quality_tone": "Content Quality & Tone",
-    "visual_identity_differentiation": "Visual Identity & Differentiation",
-    "visual_design_quality": "Visual Design Quality",
-    "navigation_information_architecture": "Navigation & Information Architecture",
-    "interaction_design_micro_interactions": "Interaction Design & Micro-interactions",
-    "responsiveness_cross_device": "Responsiveness & Cross-Device",
-    "content_layout_readability": "Content Layout & Readability",
-    "cta_effectiveness": "CTA Effectiveness",
-    "user_journey_funnel_design": "User Journey & Funnel Design",
-    "trust_signals_social_proof": "Trust Signals & Social Proof",
-    "lead_capture_form_design": "Lead Capture & Form Design",
-    "strategic_positioning_vs_competitors": "Strategic Positioning vs Competitors",
+    "brand_visual_language": "Brand Visual Language",
+    "brand_voice_messaging": "Brand Voice & Messaging",
+    "value_proposition": "Value Proposition",
+    "brand_differentiation": "Brand Differentiation",
+    "interface_design": "Interface Design",
+    "content_taxonomy": "Content Taxonomy",
+    "navigation_architecture": "Navigation Architecture",
+    "responsiveness": "Responsiveness",
+    "call_to_action_logic": "Call to Action Logic",
+    "lead_capture_form_design": "Lead Capture Form Design",
+    "trust_signals": "Trust Signals",
+    "funnel_design": "Funnel Design",
 }
 
 LENS_DISPLAY_NAMES = {
@@ -42,19 +44,22 @@ LENS_DISPLAY_NAMES = {
     "conversion_strategy": "Conversion & Strategy",
 }
 
+# Guidance text for each sub-dimension score range
+DIMENSION_GUIDANCE = {
+    5.0: "4-5: Best in class · 3-3.5: Solid · 1.5-2.5: Notable gaps · 0.5-1: Critical",
+}
+
 # Placeholder guidance for observation text areas
 OBSERVATION_PLACEHOLDERS = {
     "brand_messaging": (
         "How clearly does the website communicate who it is for, what it offers, "
         "and why it matters?\n\n"
         "Start with what works — then identify where gaps create opportunity:\n"
-        "• Value proposition clarity — is it immediately obvious what the company does "
+        "• Brand visual language — is the visual identity cohesive across all pages?\n"
+        "• Brand voice & messaging — does the tone speak to the right audience?\n"
+        "• Value proposition — is it immediately obvious what the company does "
         "and who it serves?\n"
-        "• Brand consistency — does the visual identity and tone feel cohesive across pages?\n"
-        "• Content quality — does messaging speak to buyer outcomes, or focus inward "
-        "on features and capabilities?\n"
-        "• Competitive differentiation — does the site stand apart from competitors, "
-        "or could this brand be swapped for any peer?\n\n"
+        "• Brand differentiation — does the site stand apart from competitors?\n\n"
         "Connect every finding to business impact: visitor confidence, conversion likelihood, "
         "competitive positioning."
     ),
@@ -62,14 +67,10 @@ OBSERVATION_PLACEHOLDERS = {
         "How intuitive, modern, and intentional does the website feel — from navigation "
         "and layout to visual hierarchy and mobile responsiveness?\n\n"
         "Start with what works — then identify where gaps create opportunity:\n"
-        "• Visual design quality — does the site feel current, or does it signal "
-        "an outdated digital presence?\n"
-        "• Navigation & information architecture — can visitors find what they need "
-        "without friction?\n"
-        "• Mobile experience — does the site deliver a first-class experience on the "
-        "devices most visitors use?\n"
-        "• Interaction design — do micro-interactions and transitions reinforce "
-        "quality and guide attention?\n\n"
+        "• Interface design — does the site feel current and polished?\n"
+        "• Content taxonomy — is content organized with clear categories and hierarchy?\n"
+        "• Navigation architecture — can visitors find what they need within 2-3 clicks?\n"
+        "• Responsiveness — does the site deliver a first-class experience across devices?\n\n"
         "Frame observations in terms of visitor engagement, time-on-site, "
         "and the likelihood visitors take action."
     ),
@@ -77,17 +78,25 @@ OBSERVATION_PLACEHOLDERS = {
         "How effectively does the website turn attention into action through clear CTAs, "
         "logical user paths, and trust-building content?\n\n"
         "Start with what works — then identify where gaps create opportunity:\n"
-        "• CTA effectiveness — are calls-to-action clear, compelling, and strategically "
+        "• Call to action logic — are CTAs clear, compelling, and strategically "
         "placed where visitor intent is highest?\n"
-        "• User journey design — does the path from landing to conversion feel natural, "
-        "or does it create unnecessary friction?\n"
+        "• Lead capture form design — are forms optimized for completion?\n"
         "• Trust signals — does the site establish credibility through social proof, "
-        "case studies, testimonials, and security indicators?\n"
-        "• Lead capture — are forms optimized for completion, and does the site "
-        "offer value before asking for information?\n\n"
+        "case studies, testimonials, and certifications?\n"
+        "• Funnel design — does the path from awareness to conversion feel natural?\n\n"
         "Frame every finding in terms of conversion rate impact and revenue opportunity."
     ),
 }
+
+
+def _guidance_for_max(max_val: float) -> str:
+    """Return human-readable score range guidance for a sub-dimension."""
+    if max_val >= 5.0:
+        return DIMENSION_GUIDANCE[5.0]
+    elif max_val >= 4.0:
+        return DIMENSION_GUIDANCE[4.0]
+    else:
+        return DIMENSION_GUIDANCE[3.0]
 
 
 def render_analyst_lens(
@@ -100,6 +109,9 @@ def render_analyst_lens(
 ) -> None:
     """Render the full analyst scoring workspace for one lens.
 
+    Sub-dimension scores are display-only — set exclusively by the AI
+    re-evaluate feature, not by manual analyst input.
+
     Args:
         project_id: Supabase project ID.
         site_url: URL being scored.
@@ -110,15 +122,10 @@ def render_analyst_lens(
     """
     display_name = LENS_DISPLAY_NAMES.get(lens_name, lens_name)
     max_total = sum(sub_dimensions.values())
+    lens_color = LENS_COLORS.get(lens_name, COLORS["accent"])
 
     # Load existing data into session state on first load
     _init_session_state(lens_name, sub_dimensions, existing_data)
-
-    st.markdown(
-        f"<p style='color:{COLORS['text_muted']};font-size:0.85rem;'>"
-        f"Scoring <strong style='color:{COLORS['text']};'>{site_url}</strong></p>",
-        unsafe_allow_html=True,
-    )
 
     # --- Running Score ---
     current_scores = {}
@@ -128,65 +135,69 @@ def render_analyst_lens(
 
     running_total = sum(current_scores.values())
 
-    col_score, col_sliders = st.columns([1, 3])
+    # --- Header Row: Lens donut + site label + AI button ---
+    hdr_left, hdr_right = st.columns([3, 1])
 
-    with col_score:
+    with hdr_left:
         st.markdown(
-            score_ring_html(running_total, max_total, size=140, label=display_name),
+            f"<p style='color:{COLORS['text_muted']};font-size:0.85rem;margin-bottom:0.25rem;'>"
+            f"Scoring <strong style='color:{COLORS['text']};'>{site_url}</strong></p>",
             unsafe_allow_html=True,
         )
         # Save indicator
         save_status = st.session_state.get(f"_save_status_{lens_name}", "saved")
         st.markdown(save_indicator(save_status), unsafe_allow_html=True)
 
-        # Re-evaluate with AI button
-        if site_data:
-            st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+    with hdr_right:
+        st.markdown(
+            lens_donut_svg(running_total, max_total, lens_color, size=100),
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
+    # --- AI Re-evaluate Button ---
+    if site_data:
+        btn_col, _ = st.columns([1, 3])
+        with btn_col:
             if st.button(
                 "Re-evaluate with AI",
                 key=f"re_eval_{lens_name}",
+                type="primary",
+                use_container_width=True,
                 help="Use Claude AI to generate fresh scores and observations based on the site's data.",
             ):
                 _re_evaluate_with_ai(
                     project_id, site_url, lens_name, sub_dimensions, site_data,
                 )
 
-    with col_sliders:
-        st.markdown(
-            '<div class="workspace-section"><h4>Sub-Dimensions</h4>',
-            unsafe_allow_html=True,
-        )
-        for dim_key, max_val in sub_dimensions.items():
-            label = DIMENSION_LABELS.get(dim_key, dim_key.replace("_", " ").title())
-            sk = f"analyst_{lens_name}_{dim_key}"
-            step = 0.5
-            st.slider(
-                label,
-                min_value=0.0,
-                max_value=max_val,
-                step=step,
-                key=sk,
-                help=f"Score out of {max_val:.0f}",
-            )
-        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
-    # --- Score breakdown bars ---
+    # --- Sub-Dimension Display Cards (read-only) ---
     st.markdown(
-        '<div class="workspace-section"><h4>Score Breakdown</h4>',
+        f"<p style='color:{COLORS['text_muted']};font-size:0.82rem;font-weight:500;"
+        f"margin-bottom:0.75rem;'>Sub-Dimensions</p>",
         unsafe_allow_html=True,
     )
+
     for dim_key, max_val in sub_dimensions.items():
         label = DIMENSION_LABELS.get(dim_key, dim_key.replace("_", " ").title())
-        val = current_scores.get(dim_key, 0)
-        st.markdown(progress_bar_html(val, max_val, label), unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+        score = current_scores.get(dim_key, 0.0)
+        guidance = _guidance_for_max(max_val)
+        tooltip = f"Score out of {max_val:.0f}"
+        st.markdown(
+            subdim_card_html(label, score, max_val, guidance, tooltip),
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
     # --- Observations ---
     st.markdown(
-        '<div class="workspace-section"><h4>Observations</h4>',
+        f"<p style='color:{COLORS['text_muted']};font-size:0.82rem;font-weight:500;"
+        f"margin-bottom:0.5rem;'>Observations</p>",
         unsafe_allow_html=True,
     )
-    st.markdown("</div>", unsafe_allow_html=True)
 
     placeholder = OBSERVATION_PLACEHOLDERS.get(
         lens_name,
@@ -198,20 +209,22 @@ def render_analyst_lens(
         key=obs_key,
         height=200,
         placeholder=placeholder,
+        label_visibility="collapsed",
     )
 
     # --- Screenshot Upload ---
     st.markdown(
-        '<div class="workspace-section"><h4>Supporting Screenshots</h4>',
+        f"<p style='color:{COLORS['text_muted']};font-size:0.82rem;font-weight:500;"
+        f"margin-bottom:0.5rem;margin-top:1rem;'>Supporting Screenshots</p>",
         unsafe_allow_html=True,
     )
-    st.markdown("</div>", unsafe_allow_html=True)
 
     uploaded = st.file_uploader(
         "Upload screenshot evidence",
         type=["png", "jpg", "jpeg", "webp"],
         key=f"upload_{lens_name}",
         accept_multiple_files=True,
+        label_visibility="collapsed",
     )
 
     # Show existing screenshots

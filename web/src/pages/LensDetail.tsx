@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getLensDetail, saveLensObservations, updateSubDimension, uploadArtifact, deleteArtifact } from '../api';
-import type { LensDetailData, Artifact } from '../api';
+import { getLensDetail, saveLensObservations, updateSubDimension, uploadArtifact, deleteArtifact, startPdfExport, getExportStatus } from '../api';
+import type { LensDetailData, Artifact, ExportStatusResponse } from '../api';
 import { color, font, space, radius, sidebar as sidebarToken } from '../tokens';
 import { Sidebar } from '../components/Sidebar';
 import { NAV_ITEMS } from './Dashboard';
@@ -720,26 +720,24 @@ function AnalystLensSection({ data, onOpenCopilot, onRefresh }: {
 /* ── Sub-dimension descriptions per analyst lens ──── */
 
 const BRAND_DESCRIPTIONS: Record<string, string> = {
-  brand_clarity_consistency: 'How clearly the brand identity is communicated across the site',
-  value_proposition_strength: 'How compelling and differentiated the value proposition is',
-  content_quality_tone: 'Quality and consistency of written content and tone of voice',
-  visual_identity_differentiation: 'How distinct and memorable the visual design is',
+  brand_visual_language: 'Cohesion of logo, colors, typography, and imagery across all pages',
+  brand_voice_messaging: 'Consistency and audience-appropriateness of written tone and messaging',
+  value_proposition: 'Clarity and immediacy of what the company does and who it serves',
+  brand_differentiation: 'How distinctly the brand stands apart from competitors visually and verbally',
 };
 
 const EXPERIENCE_DESCRIPTIONS: Record<string, string> = {
-  navigation_information_architecture: 'How intuitive the site structure and navigation is',
-  visual_design_quality: 'Overall aesthetic quality and polish of the design',
-  content_layout_readability: 'How easy content is to read and scan',
-  responsiveness_cross_device: 'How well the site adapts across device sizes',
-  interaction_design_micro_interactions: 'Quality of hover states, transitions, and interactive elements',
+  interface_design: 'Overall aesthetic quality, polish, and modernity of the visual design',
+  content_taxonomy: 'Organization of content with clear categories, labels, and hierarchy',
+  navigation_architecture: 'Intuitiveness of site structure, menus, and findability within 2-3 clicks',
+  responsiveness: 'Quality of the experience across mobile, tablet, and desktop devices',
 };
 
 const CONVERSION_DESCRIPTIONS: Record<string, string> = {
-  cta_effectiveness: 'How clear, visible, and compelling the calls to action are',
-  user_journey_funnel_design: 'How well the site guides visitors through to conversion',
-  lead_capture_form_design: 'Quality and usability of lead capture forms',
-  trust_signals_social_proof: 'Presence and effectiveness of trust badges, reviews, and testimonials',
-  strategic_positioning_vs_competitors: 'How the site positions itself relative to competitors',
+  call_to_action_logic: 'Clarity, visibility, and strategic placement of calls to action',
+  lead_capture_form_design: 'Optimization of forms for completion — length, fields, progressive disclosure',
+  trust_signals: 'Presence and effectiveness of testimonials, case studies, logos, and certifications',
+  funnel_design: 'How naturally the path from awareness to conversion flows without dead ends',
 };
 
 const LENS_DESCRIPTIONS: Record<string, Record<string, string>> = {
@@ -752,18 +750,16 @@ const LENS_DESCRIPTIONS: Record<string, Record<string, string>> = {
 
 const SUB_DIM_MAX: Record<string, Record<string, number>> = {
   brand_messaging: {
-    brand_clarity_consistency: 5, value_proposition_strength: 5,
-    content_quality_tone: 5, visual_identity_differentiation: 5,
+    brand_visual_language: 5, brand_voice_messaging: 5,
+    value_proposition: 5, brand_differentiation: 5,
   },
   experience_design: {
-    visual_design_quality: 4, navigation_information_architecture: 4,
-    interaction_design_micro_interactions: 4, responsiveness_cross_device: 4,
-    content_layout_readability: 4,
+    interface_design: 5, content_taxonomy: 5,
+    navigation_architecture: 5, responsiveness: 5,
   },
   conversion_strategy: {
-    cta_effectiveness: 4, user_journey_funnel_design: 4,
-    trust_signals_social_proof: 4, lead_capture_form_design: 4,
-    strategic_positioning_vs_competitors: 4,
+    call_to_action_logic: 5, lead_capture_form_design: 5,
+    trust_signals: 5, funnel_design: 5,
   },
 };
 
@@ -771,22 +767,20 @@ const SUB_DIM_MAX: Record<string, Record<string, number>> = {
 
 const SUB_DIM_PLACEHOLDERS: Record<string, string> = {
   // Brand
-  content_quality_tone: 'Evaluate the quality, clarity, and tone of the site\'s written content. Does it speak to the right audience with the right voice?',
-  brand_clarity_consistency: 'How consistently does the site communicate the brand identity across pages, visuals, and messaging?',
-  value_proposition_strength: 'How clearly and compellingly does the site communicate what makes this company different and worth choosing?',
-  visual_identity_differentiation: 'How well does the visual design reflect and reinforce the brand\'s positioning and values?',
+  brand_visual_language: 'How consistently does the site communicate brand identity through color, typography, imagery, and layout across all pages?',
+  brand_voice_messaging: 'Does the written content speak to the right audience with the right tone? Is the voice consistent and differentiated?',
+  value_proposition: 'How clearly and compellingly does the site communicate what makes this company different and worth choosing?',
+  brand_differentiation: 'What sets this brand apart visually and strategically from competitors? Could this site belong to anyone else?',
   // Experience
-  visual_design_quality: 'Assess the overall aesthetic quality, polish, and modernity of the visual design.',
-  navigation_information_architecture: 'How intuitive is the site structure? Can visitors find what they need quickly?',
-  interaction_design_micro_interactions: 'Evaluate hover states, transitions, animations, and interactive feedback throughout the site.',
-  responsiveness_cross_device: 'How well does the site adapt across desktop, tablet, and mobile device sizes?',
-  content_layout_readability: 'Is content well-structured with clear hierarchy, scannable sections, and readable typography?',
+  interface_design: 'Assess the overall aesthetic quality, polish, and modernity of the visual design — layout, spacing, and visual hierarchy.',
+  content_taxonomy: 'Is content well-organized with clear categories, logical grouping, and an intuitive information structure?',
+  navigation_architecture: 'How intuitive is the site navigation? Can visitors find what they need within 2-3 clicks?',
+  responsiveness: 'How well does the site adapt across desktop, tablet, and mobile device sizes? Any layout breaks or friction?',
   // Conversion
-  cta_effectiveness: 'Are calls to action clear, visible, compelling, and strategically placed throughout the site?',
-  user_journey_funnel_design: 'How well does the site guide visitors from awareness through to conversion or contact?',
-  trust_signals_social_proof: 'Are there effective trust badges, testimonials, case studies, or social proof elements?',
-  lead_capture_form_design: 'Are lead capture forms well-designed, minimal, and user-friendly?',
-  strategic_positioning_vs_competitors: 'How effectively does the site position itself against competitors in the market?',
+  call_to_action_logic: 'Are calls to action clear, visible, compelling, and strategically placed throughout the site?',
+  lead_capture_form_design: 'Are lead capture forms well-designed, minimal, and user-friendly? Do they reduce friction?',
+  trust_signals: 'Are there effective trust badges, testimonials, case studies, certifications, or social proof elements?',
+  funnel_design: 'How well does the site guide visitors from awareness through consideration to conversion or contact?',
 };
 
 /* ── Sub Dimension Card Component ──── */
@@ -1103,6 +1097,22 @@ export function LensDetail() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
 
+  // ── Export state ──
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportStatusResponse['status']>('none');
+  const [exportUrl, setExportUrl] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const exportPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopExportPoll = useCallback(() => {
+    if (exportPollRef.current) {
+      clearInterval(exportPollRef.current);
+      exportPollRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => stopExportPoll(), [stopExportPoll]);
+
   useEffect(() => {
     if (!projectId || !lensId) return;
     setLoading(true);
@@ -1121,7 +1131,46 @@ export function LensDetail() {
 
   const dismissToast = useCallback(() => setToastMsg(null), []);
   const handleShare = () => setToastMsg('Share Project — coming soon');
-  const handleExport = () => setToastMsg('Export Report — coming soon');
+
+  const handleExport = async () => {
+    if (!projectId) return;
+    setExportModalOpen(true);
+    setExportStatus('pending');
+    setExportUrl(null);
+    setExportError(null);
+
+    try {
+      await startPdfExport(projectId);
+      exportPollRef.current = setInterval(async () => {
+        try {
+          const status = await getExportStatus(projectId);
+          setExportStatus(status.status);
+          if (status.status === 'complete') {
+            setExportUrl(status.download_url);
+            stopExportPoll();
+          } else if (status.status === 'error') {
+            setExportError(status.error || 'Export failed');
+            stopExportPoll();
+          }
+        } catch {
+          // keep polling on transient errors
+        }
+      }, 3000);
+    } catch (err) {
+      setExportStatus('error');
+      setExportError(err instanceof Error ? err.message : 'Failed to start export');
+    }
+  };
+
+  const handleExportRetry = () => {
+    stopExportPoll();
+    handleExport();
+  };
+
+  const closeExportModal = () => {
+    stopExportPoll();
+    setExportModalOpen(false);
+  };
 
   if (loading) {
     return (
@@ -1158,7 +1207,12 @@ export function LensDetail() {
           <h1 style={styles.pageTitle}>
             <span style={styles.pageTitlePrefix}>Project</span>
             <span style={styles.pageTitleDivider}> | </span>
-            {data.project_name}
+            <span
+              style={styles.pageTitleName}
+              onClick={() => navigate(`/projects/${projectId}`)}
+            >
+              {data.project_name}
+            </span>
           </h1>
           <div style={styles.headerActions}>
             <button style={styles.secondaryBtn} onClick={handleShare}>
@@ -1259,6 +1313,102 @@ export function LensDetail() {
         }}
       />
 
+      {/* Export Modal */}
+      {exportModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+        }} onClick={closeExportModal}>
+          <div style={{
+            background: '#fff', borderRadius: 12, padding: '32px 36px',
+            width: 420, maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          }} onClick={(e) => e.stopPropagation()}>
+
+            {exportStatus === 'complete' && exportUrl ? (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>✓</div>
+                <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0A0A2E', marginBottom: 8 }}>
+                  Your report is ready
+                </h3>
+                <a
+                  href={exportUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-block', marginTop: 16, padding: '10px 28px',
+                    background: '#076EFF', color: '#fff', borderRadius: 20,
+                    fontWeight: 600, fontSize: 14, textDecoration: 'none',
+                  }}
+                >
+                  Download Report
+                </a>
+                <div style={{ marginTop: 16 }}>
+                  <button onClick={closeExportModal} style={{
+                    background: 'none', border: 'none', color: '#6B7280',
+                    fontSize: 13, cursor: 'pointer',
+                  }}>Close</button>
+                </div>
+              </div>
+            ) : exportStatus === 'error' ? (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>⚠</div>
+                <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0A0A2E', marginBottom: 8 }}>
+                  Export Failed
+                </h3>
+                <p style={{ color: '#EF4444', fontSize: 13, marginBottom: 16 }}>
+                  {exportError || 'An unexpected error occurred'}
+                </p>
+                <button onClick={handleExportRetry} style={{
+                  padding: '10px 28px', background: '#076EFF', color: '#fff',
+                  borderRadius: 20, fontWeight: 600, fontSize: 14, border: 'none',
+                  cursor: 'pointer',
+                }}>Try Again</button>
+                <div style={{ marginTop: 12 }}>
+                  <button onClick={closeExportModal} style={{
+                    background: 'none', border: 'none', color: '#6B7280',
+                    fontSize: 13, cursor: 'pointer',
+                  }}>Close</button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0A0A2E', marginBottom: 20 }}>
+                  Generating Report
+                </h3>
+                {[
+                  { label: 'Gathering report data', done: exportStatus !== 'pending' },
+                  { label: 'Building charts', done: exportStatus === 'generating' || exportStatus === 'complete' },
+                  { label: 'Assembling pages', done: exportStatus === 'generating' || exportStatus === 'complete' },
+                  { label: 'Finalizing PDF', done: false },
+                ].map((step, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', padding: '8px 0',
+                    color: step.done ? '#0A0A2E' : '#6B7280',
+                  }}>
+                    <span style={{
+                      width: 24, height: 24, borderRadius: '50%', marginRight: 12,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 13, flexShrink: 0,
+                      background: step.done ? '#076EFF' : 'transparent',
+                      color: step.done ? '#fff' : '#6B7280',
+                      border: step.done ? 'none' : '2px solid #E2E8F0',
+                      animation: (!step.done && i === (exportStatus === 'pending' ? 0 : 2)) ? 'spin 1s linear infinite' : 'none',
+                    }}>
+                      {step.done ? '✓' : ''}
+                    </span>
+                    <span style={{ fontSize: 14 }}>{step.label}</span>
+                  </div>
+                ))}
+                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 16 }}>
+                  This usually takes 15–30 seconds
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {toastMsg && <Toast message={toastMsg} onDone={dismissToast} />}
     </div>
   );
@@ -1324,6 +1474,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   pageTitlePrefix: { color: color.textMuted },
   pageTitleDivider: { color: color.textDim, fontWeight: font.weightRegular },
+  pageTitleName: {
+    fontWeight: font.weightRegular,
+    cursor: 'pointer',
+    transition: 'opacity 0.15s',
+  } as React.CSSProperties,
   headerActions: { display: 'flex', gap: space.sm, flexShrink: 0 },
   secondaryBtn: {
     display: 'inline-flex',

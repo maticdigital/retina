@@ -64,12 +64,13 @@ Most sites land in the 40-70% range. Only truly exceptional implementations \
 score above 80%.
 
 Common signals that lower scores:
-- Brand: Value proposition unclear within 5 seconds, visual identity could \
-belong to any competitor, messaging speaks to features not outcomes
-- Experience: Mobile rendering creates friction, navigation requires effort to \
-parse, visual design feels dated or inconsistent, layout cluttered
-- Conversion: CTAs are weak or buried, conversion path unclear, trust signals \
-(testimonials, case studies, certifications) absent or hard to find
+- Brand: Visual language inconsistent across pages, voice doesn't match target \
+audience, value proposition unclear within 5 seconds, nothing differentiates \
+from competitors
+- Experience: Interface design feels dated or inconsistent, content lacks clear \
+taxonomy, navigation requires effort to parse, mobile rendering creates friction
+- Conversion: CTAs are weak or buried, lead capture forms create friction, trust \
+signals absent or hard to find, conversion funnel has gaps or dead ends
 
 ## Observation Narrative Guidelines
 
@@ -108,30 +109,28 @@ includes both a numeric score AND a brief observation:
 {
   "brand_messaging": {
     "sub_scores": {
-      "brand_clarity_consistency": {"score": 3.5, "observation": "The brand identity is communicated through consistent visual elements, though the logo treatment varies between pages. Strengthening the header lockup would reinforce recognition across touchpoints."},
-      "value_proposition_strength": {"score": 2.5, "observation": "The value proposition is present but buried below the fold. Leading with outcome-focused language would better communicate differentiation to first-time visitors."},
-      "content_quality_tone": {"score": 3.0, "observation": "Copy maintains a professional tone but defaults to feature-listing rather than benefit-framing. Shifting to client-outcome language would strengthen engagement."},
-      "visual_identity_differentiation": {"score": 4.0, "observation": "The visual system uses a distinctive color palette and typography that sets it apart from competitors. This is an asset worth preserving and extending."}
+      "brand_visual_language": {"score": 3.5, "observation": "The brand identity is communicated through consistent visual elements, though the logo treatment varies between pages. Strengthening the header lockup would reinforce recognition across touchpoints."},
+      "brand_voice_messaging": {"score": 3.0, "observation": "Copy maintains a professional tone but defaults to feature-listing rather than benefit-framing. Shifting to client-outcome language would strengthen engagement."},
+      "value_proposition": {"score": 2.5, "observation": "The value proposition is present but buried below the fold. Leading with outcome-focused language would better communicate differentiation to first-time visitors."},
+      "brand_differentiation": {"score": 4.0, "observation": "The visual system uses a distinctive color palette and typography that sets it apart from competitors. This is an asset worth preserving and extending."}
     },
     "observations": "Overall strategic observation narrative for this lens..."
   },
   "experience_design": {
     "sub_scores": {
-      "visual_design_quality": {"score": 3.0, "observation": "Specific observation..."},
-      "navigation_information_architecture": {"score": 2.5, "observation": "Specific observation..."},
-      "interaction_design_micro_interactions": {"score": 2.0, "observation": "Specific observation..."},
-      "responsiveness_cross_device": {"score": 3.5, "observation": "Specific observation..."},
-      "content_layout_readability": {"score": 3.0, "observation": "Specific observation..."}
+      "interface_design": {"score": 3.0, "observation": "Specific observation..."},
+      "content_taxonomy": {"score": 3.0, "observation": "Specific observation..."},
+      "navigation_architecture": {"score": 2.5, "observation": "Specific observation..."},
+      "responsiveness": {"score": 3.5, "observation": "Specific observation..."}
     },
     "observations": "Overall strategic observation narrative for this lens..."
   },
   "conversion_strategy": {
     "sub_scores": {
-      "cta_effectiveness": {"score": 2.5, "observation": "Specific observation..."},
-      "user_journey_funnel_design": {"score": 2.0, "observation": "Specific observation..."},
-      "trust_signals_social_proof": {"score": 3.0, "observation": "Specific observation..."},
+      "call_to_action_logic": {"score": 2.5, "observation": "Specific observation..."},
       "lead_capture_form_design": {"score": 2.5, "observation": "Specific observation..."},
-      "strategic_positioning_vs_competitors": {"score": 3.0, "observation": "Specific observation..."}
+      "trust_signals": {"score": 3.0, "observation": "Specific observation..."},
+      "funnel_design": {"score": 2.0, "observation": "Specific observation..."}
     },
     "observations": "Overall strategic observation narrative for this lens..."
   }

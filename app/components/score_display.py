@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from app.components.styles import COLORS, hex_to_rgba
+import os
+
+from app.components.styles import COLORS, LENS_COLORS, LENS_ICONS, LENS_SHORT_LABELS, hex_to_rgba
 
 
 def score_color(score: float, max_score: float) -> str:
@@ -55,6 +57,120 @@ def score_ring_html(
 """
 
 
+def lens_donut_svg(
+    score: float,
+    max_score: float = 20.0,
+    color: str = "#076EFF",
+    size: int = 120,
+) -> str:
+    """Single-color donut ring for a lens score (0-20)."""
+    pct = min(score / max_score, 1.0) if max_score > 0 else 0
+    radius = size * 0.38
+    circumference = 2 * 3.14159 * radius
+    offset = circumference * (1 - pct)
+    cx = cy = size / 2
+    display = f"{score:.1f}"
+
+    return f"""
+<div style="text-align:center;">
+  <svg width="{size}" height="{size}" viewBox="0 0 {size} {size}">
+    <circle cx="{cx}" cy="{cy}" r="{radius}"
+            fill="none" stroke="{COLORS['border']}" stroke-width="7" />
+    <circle cx="{cx}" cy="{cy}" r="{radius}"
+            fill="none" stroke="{color}" stroke-width="7"
+            stroke-dasharray="{circumference}" stroke-dashoffset="{offset}"
+            stroke-linecap="round"
+            transform="rotate(-90 {cx} {cy})"
+            style="transition: stroke-dashoffset 0.6s ease;" />
+    <text x="{cx}" y="{cy - 4}" text-anchor="middle"
+          font-size="{size * 0.2}px" font-weight="700" fill="{COLORS['text']}">
+      {display}
+    </text>
+    <text x="{cx}" y="{cy + size * 0.1}" text-anchor="middle"
+          font-size="{size * 0.09}px" fill="{COLORS['text_dim']}">
+      / {max_score:.0f}
+    </text>
+  </svg>
+</div>
+"""
+
+
+def lens_summary_card(
+    lens_key: str,
+    score: float | None,
+    icon_svg: str = "",
+) -> str:
+    """Lens summary card for the overview — clickable, shows icon + score + status."""
+    color = LENS_COLORS.get(lens_key, COLORS["accent"])
+    name = LENS_SHORT_LABELS.get(lens_key, lens_key)
+
+    if score is None:
+        score_display = "—"
+        status = "Analyst review pending"
+        status_color = COLORS["text_dim"]
+    elif score >= 16:
+        score_display = f"{score:.1f}"
+        status = "Strong"
+        status_color = COLORS["success"]
+    elif score >= 11:
+        score_display = f"{score:.1f}"
+        status = "Functional"
+        status_color = COLORS["warning"]
+    elif score >= 6:
+        score_display = f"{score:.1f}"
+        status = "Needs attention"
+        status_color = COLORS["error"]
+    else:
+        score_display = f"{score:.1f}"
+        status = "Critical"
+        status_color = COLORS["error"]
+
+    icon_html = ""
+    if icon_svg:
+        icon_html = f"<div style='width:24px;height:24px;flex-shrink:0;'>{icon_svg}</div>"
+
+    return f"""
+<div class="lens-card" style="border-top-color:{color};">
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      {icon_html}
+      <span class="lens-name">{name}</span>
+    </div>
+    <span class="lens-score">{score_display}<span style="font-size:0.75rem;color:{COLORS['text_dim']};font-weight:400;">/20</span></span>
+  </div>
+  <div class="lens-status" style="color:{status_color};">● {status}</div>
+</div>
+"""
+
+
+def subdim_card_html(
+    name: str,
+    score: float,
+    max_score: float,
+    guidance_text: str = "",
+    tooltip_text: str = "",
+) -> str:
+    """Read-only sub-dimension card with progress bar and score label."""
+    pct = min(score / max_score * 100, 100) if max_score > 0 else 0
+    tooltip = f' title="{tooltip_text}"' if tooltip_text else ""
+
+    return f"""
+<div class="subdim-card">
+  <div class="subdim-name">
+    <span>{name}</span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="subdim-score">{score:.1f} / {max_score:.0f}</span>
+      {f'<span class="subdim-tooltip"{tooltip}>?</span>' if tooltip_text else ''}
+    </div>
+  </div>
+  <div class="subdim-bar-track">
+    <div class="subdim-bar-fill" style="width:{pct}%;"></div>
+  </div>
+  {f'<div class="subdim-guidance">{guidance_text}</div>' if guidance_text else ''}
+</div>
+"""
+
+
 def progress_bar_html(
     score: float,
     max_score: float,
@@ -80,6 +196,30 @@ def progress_bar_html(
 """
 
 
+def lens_legend_html(scores: dict[str, float | None]) -> str:
+    """Horizontal legend row: color dot + lens name + score."""
+    from app.components.charts import LENS_ORDER
+
+    items = []
+    for key in LENS_ORDER:
+        color = LENS_COLORS.get(key, COLORS["accent"])
+        name = LENS_SHORT_LABELS.get(key, key)
+        score = scores.get(key)
+        score_str = f"{score:.1f}/20" if score is not None else "—"
+        items.append(
+            f"<div style='display:flex;align-items:center;gap:6px;'>"
+            f"<span style='width:10px;height:10px;border-radius:50%;background:{color};display:inline-block;'></span>"
+            f"<span style='font-size:0.82rem;color:{COLORS['text_muted']};'>{name}</span>"
+            f"<span style='font-size:0.82rem;font-weight:600;color:{COLORS['text']};'>{score_str}</span>"
+            f"</div>"
+        )
+
+    return (
+        f"<div style='display:flex;flex-wrap:wrap;gap:20px;justify-content:center;"
+        f"padding:12px 0;'>{''.join(items)}</div>"
+    )
+
+
 def cwv_indicator(
     metric_name: str,
     value: float | None,
@@ -89,9 +229,7 @@ def cwv_indicator(
     """Core Web Vital metric card with pass/fail coloring."""
     if value is None:
         return f"""
-<div style="background:{COLORS['bg_card']};border:1px solid {COLORS['border']};
-            border-radius:10px;padding:1rem;text-align:center;
-            box-shadow:{COLORS['shadow']};">
+<div class="retina-card" style="text-align:center;padding:1rem;">
   <div style="color:{COLORS['text_dim']};font-size:0.75rem;text-transform:uppercase;
               letter-spacing:0.05em;margin-bottom:6px;">{metric_name}</div>
   <div style="color:{COLORS['text_dim']};font-size:1.5rem;font-weight:700;">—</div>
@@ -103,9 +241,7 @@ def cwv_indicator(
     display = f"{value:.2f}" if unit == "" else f"{value:.0f}"
 
     return f"""
-<div style="background:{COLORS['bg_card']};border:1px solid {hex_to_rgba(color, 0.25)};
-            border-radius:10px;padding:1rem;text-align:center;
-            box-shadow:{COLORS['shadow']};">
+<div class="retina-card" style="text-align:center;padding:1rem;border-left:3px solid {color};">
   <div style="color:{COLORS['text_muted']};font-size:0.75rem;text-transform:uppercase;
               letter-spacing:0.05em;margin-bottom:6px;">{metric_name}</div>
   <div style="color:{color};font-size:1.5rem;font-weight:700;">{display}<span style="font-size:0.75rem;"> {unit}</span></div>
@@ -117,12 +253,12 @@ def tech_tag(name: str, category: str = "") -> str:
     """Styled pill/tag for technology stack items."""
     cat_colors = {
         "cdn": "#076EFF",
-        "javascript frameworks": "#8B5CF6",
-        "web frameworks": "#8B5CF6",
-        "cms": "#10B981",
-        "analytics": "#F59E0B",
+        "javascript frameworks": "#9B59B6",
+        "web frameworks": "#9B59B6",
+        "cms": "#00C864",
+        "analytics": "#FF8C00",
         "hosting": "#06B6D4",
-        "ssl": "#10B981",
+        "ssl": "#00C864",
         "widgets": "#EC4899",
         "web servers": "#06B6D4",
     }
@@ -144,9 +280,7 @@ def lens_score_card(label: str, score: float | None, max_score: float = 20.0) ->
         color = score_color(score, max_score)
 
     return f"""
-<div style="background:{COLORS['bg_card']};border:1px solid {COLORS['border']};
-            border-radius:10px;padding:1rem;text-align:center;
-            box-shadow:{COLORS['shadow']};">
+<div class="retina-card" style="text-align:center;padding:1rem;">
   <div style="color:{color};font-size:1.8rem;font-weight:700;">{display}</div>
   <div style="color:{COLORS['text_dim']};font-size:0.7rem;text-transform:uppercase;
               letter-spacing:0.04em;margin-top:4px;">/{max_score:.0f}</div>
@@ -180,5 +314,14 @@ def audit_result_row(audit_name: str, passed: bool | None) -> str:
 def save_indicator(status: str = "saved") -> str:
     """Auto-save status indicator."""
     if status == "saving":
-        return f'<div style="font-size:0.75rem;color:{COLORS["warning"]};padding:4px 8px;">⟳ Saving...</div>'
-    return f'<div style="font-size:0.75rem;color:{COLORS["success"]};padding:4px 8px;">✓ Saved</div>'
+        return f'<div style="font-size:0.75rem;color:{COLORS["warning"]};padding:4px 8px;text-align:center;">⟳ Saving...</div>'
+    return f'<div style="font-size:0.75rem;color:{COLORS["success"]};padding:4px 8px;text-align:center;">✓ Saved</div>'
+
+
+def _read_lens_icon(lens_key: str) -> str:
+    """Read a lens SVG icon file and return its content."""
+    icon_path = LENS_ICONS.get(lens_key, "")
+    if icon_path and os.path.exists(icon_path):
+        with open(icon_path) as f:
+            return f.read()
+    return ""

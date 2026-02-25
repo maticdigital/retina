@@ -1,4 +1,4 @@
-"""Dashboard page — project list view."""
+"""Dashboard page — project card grid with welcome header and copilot placeholder."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from datetime import datetime
 
 import streamlit as st
 
-from app.components.styles import COLORS, metric_card, status_badge
+from app.components.styles import COLORS, status_badge
 from app.services.projects import delete_project, duplicate_project, list_projects
 
 
@@ -15,47 +15,62 @@ def render() -> None:
     user = st.session_state.get("user", {})
     user_id = user.get("id", "")
     user_role = user.get("role", "analyst")
+    first_name = user.get("name", "User").split()[0] if user.get("name") else "User"
 
-    # Header
+    # Header row
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.markdown(f"### Welcome back, {user.get('name', 'User')}")
+        st.markdown(
+            f"<h1 style='color:{COLORS['text']};font-size:1.8rem;margin:0 0 4px 0;'>"
+            f"Welcome back, {first_name}</h1>"
+            f"<p style='color:{COLORS['text_muted']};font-size:0.88rem;margin:0;'>"
+            f"{datetime.now().strftime('%A, %B %d, %Y')}</p>",
+            unsafe_allow_html=True,
+        )
     with col2:
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
         if st.button("+ New Analysis", type="primary", use_container_width=True):
             st.session_state["page"] = "new_analysis"
             st.rerun()
 
-    st.markdown("---")
+    st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
 
     # Fetch projects
     projects = list_projects(user_id, user_role)
 
-    # Summary metrics
-    total = len(projects)
-    complete = sum(1 for p in projects if p["status"] == "complete")
-    in_progress = sum(1 for p in projects if p["status"] == "in_progress")
-    drafts = sum(1 for p in projects if p["status"] == "draft")
+    # Section label
+    st.markdown(
+        f"<p style='color:{COLORS['text_muted']};font-size:0.88rem;font-weight:500;"
+        f"margin-bottom:1rem;'>Your Analyses</p>",
+        unsafe_allow_html=True,
+    )
 
-    mc1, mc2, mc3, mc4 = st.columns(4)
-    with mc1:
-        st.markdown(metric_card(str(total), "Total Projects"), unsafe_allow_html=True)
-    with mc2:
-        st.markdown(metric_card(str(complete), "Complete"), unsafe_allow_html=True)
-    with mc3:
-        st.markdown(metric_card(str(in_progress), "In Progress"), unsafe_allow_html=True)
-    with mc4:
-        st.markdown(metric_card(str(drafts), "Drafts"), unsafe_allow_html=True)
-
-    st.markdown("<div style='height: 1.5rem'></div>", unsafe_allow_html=True)
+    # Show Quick Start inline if zero projects
+    if not projects:
+        _render_empty_state()
+        _render_copilot_placeholder()
+        return
 
     # Search and filter
     fc1, fc2, fc3 = st.columns([3, 1, 1])
     with fc1:
-        search = st.text_input("Search projects", placeholder="Search by name or URL...", label_visibility="collapsed")
+        search = st.text_input(
+            "Search projects",
+            placeholder="Search by name or URL...",
+            label_visibility="collapsed",
+        )
     with fc2:
-        sort_by = st.selectbox("Sort", ["Newest", "Oldest", "Name A-Z", "Name Z-A"], label_visibility="collapsed")
+        sort_by = st.selectbox(
+            "Sort",
+            ["Newest", "Oldest", "Name A-Z", "Name Z-A"],
+            label_visibility="collapsed",
+        )
     with fc3:
-        filter_status = st.selectbox("Status", ["All", "Draft", "In Progress", "Complete"], label_visibility="collapsed")
+        filter_status = st.selectbox(
+            "Status",
+            ["All", "Draft", "In Progress", "Complete"],
+            label_visibility="collapsed",
+        )
 
     # Filter
     filtered = projects
@@ -71,31 +86,39 @@ def render() -> None:
 
     # Sort
     if sort_by == "Newest":
-        filtered.sort(key=lambda p: p["updated_at"], reverse=True)
+        filtered.sort(key=lambda p: p.get("updated_at", ""), reverse=True)
     elif sort_by == "Oldest":
-        filtered.sort(key=lambda p: p["updated_at"])
+        filtered.sort(key=lambda p: p.get("updated_at", ""))
     elif sort_by == "Name A-Z":
         filtered.sort(key=lambda p: p["name"].lower())
     elif sort_by == "Name Z-A":
         filtered.sort(key=lambda p: p["name"].lower(), reverse=True)
 
-    # Project list
     if not filtered:
         st.markdown(
-            f"<div style='text-align: center; padding: 3rem; color: {COLORS['text_muted']};'>"
-            "<p style='font-size: 1.2rem;'>No projects found</p>"
-            "<p>Create your first analysis to get started.</p>"
-            "</div>",
+            f"<div style='text-align:center;padding:3rem;color:{COLORS['text_muted']};'>"
+            f"<p style='font-size:1.1rem;'>No matching projects found</p>"
+            f"</div>",
             unsafe_allow_html=True,
         )
+        _render_copilot_placeholder()
         return
 
-    for project in filtered:
-        _render_project_row(project, user_id, user_role)
+    # 2-column card grid
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+    for i in range(0, len(filtered), 2):
+        cols = st.columns(2)
+        for j, col in enumerate(cols):
+            idx = i + j
+            if idx < len(filtered):
+                with col:
+                    _render_project_card(filtered[idx])
+
+    _render_copilot_placeholder()
 
 
-def _render_project_row(project: dict, user_id: str, user_role: str) -> None:
-    """Render a single project row."""
+def _render_project_card(project: dict) -> None:
+    """Render a single project as a card."""
     pid = project["id"]
     badge = status_badge(project["status"])
 
@@ -106,48 +129,69 @@ def _render_project_row(project: dict, user_id: str, user_role: str) -> None:
     except (ValueError, KeyError):
         date_str = ""
 
-    competitors = project.get("competitor_urls", [])
-    comp_count = len(competitors) if competitors else 0
+    # Retina Score — from the latest report if available
+    score_display = "—"
+    score_label = "Not scored"
 
-    # Creator info
-    creator_name = ""
-    if project.get("users"):
-        creator_name = project["users"].get("name", "")
+    st.markdown(
+        f"""<div class="project-card">
+  <div class="project-arrow">→</div>
+  <div class="project-name">{project['name']}</div>
+  <div class="project-url">{project['primary_url']}</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+    {badge}
+    <span style="color:{COLORS['text_dim']};font-size:0.78rem;">{date_str}</span>
+  </div>
+  <div style="display:flex;align-items:baseline;gap:6px;">
+    <span class="project-score">{score_display}</span>
+    <span class="project-score-label">Retina Score</span>
+  </div>
+</div>""",
+        unsafe_allow_html=True,
+    )
 
-    with st.container():
-        c1, c2, c3, c4, c5 = st.columns([4, 2, 1.5, 1.5, 2])
-        with c1:
-            st.markdown(
-                f"**{project['name']}**<br/>"
-                f"<span style='color: {COLORS['text_muted']}; font-size: 0.8rem;'>{project['primary_url']}</span>",
-                unsafe_allow_html=True,
-            )
-        with c2:
-            st.markdown(f"<span style='color: {COLORS['text_muted']}; font-size: 0.85rem;'>{date_str}</span>", unsafe_allow_html=True)
-        with c3:
-            st.markdown(badge, unsafe_allow_html=True)
-        with c4:
-            st.markdown(
-                f"<span style='color: {COLORS['text_muted']}; font-size: 0.85rem;'>{comp_count} competitor{'s' if comp_count != 1 else ''}</span>",
-                unsafe_allow_html=True,
-            )
-        with c5:
-            bc1, bc2, bc3 = st.columns(3)
-            with bc1:
-                if st.button("Open", key=f"open_{pid}", use_container_width=True):
-                    st.session_state["page"] = "project_detail"
-                    st.session_state["current_project_id"] = pid
-                    st.rerun()
-            with bc2:
-                if st.button("Copy", key=f"dup_{pid}", use_container_width=True):
-                    try:
-                        duplicate_project(pid, user_id)
-                        st.rerun()
-                    except Exception as e:
-                        st.error(str(e))
-            with bc3:
-                can_delete = user_role in ("owner", "admin") or project.get("created_by") == user_id
-                if can_delete:
-                    if st.button("Del", key=f"del_{pid}", use_container_width=True):
-                        delete_project(pid)
-                        st.rerun()
+    # Invisible button to handle click
+    if st.button("Open", key=f"open_{pid}", use_container_width=True):
+        st.session_state["page"] = "project_detail"
+        st.session_state["current_project_id"] = pid
+        st.rerun()
+
+
+def _render_empty_state() -> None:
+    """Render the empty state with inline Quick Start steps."""
+    from app.components.quick_start import render_quick_start_inline
+
+    st.markdown(
+        f"""<div style="text-align:center;padding:3rem 2rem;">
+  <div style="font-size:3rem;margin-bottom:1rem;">📊</div>
+  <h3 style="color:{COLORS['text']};margin-bottom:0.5rem;">No analyses yet</h3>
+  <p style="color:{COLORS['text_muted']};margin-bottom:2rem;">
+    Start your first analysis to evaluate a website's digital readiness.
+  </p>
+</div>""",
+        unsafe_allow_html=True,
+    )
+
+    render_quick_start_inline()
+
+    if st.button("Start your first analysis", type="primary"):
+        st.session_state["page"] = "new_analysis"
+        st.rerun()
+
+
+def _render_copilot_placeholder() -> None:
+    """Render the Retina Copilot placeholder at the bottom of the dashboard."""
+    # RETINA COPILOT — UI PLACEHOLDER, NOT YET WIRED
+    st.markdown("<div style='height:2rem'></div>", unsafe_allow_html=True)
+    st.markdown(
+        f"""<div class="copilot-label">
+  <span>Retina Copilot</span>
+  <span class="copilot-badge">Coming Soon</span>
+</div>
+<div class="copilot-bar">
+  <span style="font-size:1.1rem;color:{COLORS['text_dim']};">💬</span>
+  <span style="flex:1;color:{COLORS['text_dim']};font-size:0.88rem;">Ask Retina anything about your reports...</span>
+  <span style="font-size:1rem;color:{COLORS['text_dim']};">→</span>
+</div>""",
+        unsafe_allow_html=True,
+    )

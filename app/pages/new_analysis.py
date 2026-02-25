@@ -15,9 +15,13 @@ def render() -> None:
 
     st.markdown("### New Analysis")
     st.markdown(
-        f"<p style='color: {COLORS['text_muted']};'>Create a new competitive analysis project.</p>",
+        f"<p style='color: {COLORS['text_muted']};'>Create a new digital experience readiness analysis.</p>",
         unsafe_allow_html=True,
     )
+
+    # Initialize dynamic competitor list in session state
+    if "new_project_competitors" not in st.session_state:
+        st.session_state["new_project_competitors"] = []
 
     with st.form("new_project_form"):
         name = st.text_input("Project Name", placeholder="e.g., Q1 2026 Competitive Audit")
@@ -25,23 +29,44 @@ def render() -> None:
 
         st.markdown(
             f"<p style='color: {COLORS['text_muted']}; font-size: 0.85rem; margin-top: 0.5rem;'>"
-            "Add up to 3 competitor URLs for comparative analysis.</p>",
+            "Optionally add competitor URLs for comparative analysis. "
+            "Use the buttons below the form to add or remove competitors.</p>",
             unsafe_allow_html=True,
         )
 
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            comp1 = st.text_input("Competitor 1", placeholder="https://competitor1.com", key="comp1")
-        with c2:
-            comp2 = st.text_input("Competitor 2", placeholder="https://competitor2.com", key="comp2")
-        with c3:
-            comp3 = st.text_input("Competitor 3", placeholder="https://competitor3.com", key="comp3")
+        # Render dynamic competitor inputs
+        comp_values = []
+        for i in range(len(st.session_state["new_project_competitors"])):
+            val = st.text_input(
+                f"Competitor {i + 1}",
+                value=st.session_state["new_project_competitors"][i],
+                placeholder=f"https://competitor{i + 1}.com",
+                key=f"_comp_input_{i}",
+            )
+            comp_values.append(val)
 
         col1, col2 = st.columns([1, 3])
         with col1:
             submitted = st.form_submit_button("Create & Run Analysis", type="primary", use_container_width=True)
         with col2:
             save_draft = st.form_submit_button("Save as Draft", use_container_width=True)
+
+    # Sync form values back to session state
+    for i, val in enumerate(comp_values):
+        if i < len(st.session_state["new_project_competitors"]):
+            st.session_state["new_project_competitors"][i] = val
+
+    # Add/Remove competitor buttons (outside form so they can trigger rerun)
+    btn_cols = st.columns([1, 1, 4])
+    with btn_cols[0]:
+        if st.button("+ Add Competitor", use_container_width=True):
+            st.session_state["new_project_competitors"].append("")
+            st.rerun()
+    with btn_cols[1]:
+        if st.session_state["new_project_competitors"]:
+            if st.button("− Remove Last", use_container_width=True):
+                st.session_state["new_project_competitors"].pop()
+                st.rerun()
 
     if submitted or save_draft:
         if not name:
@@ -51,8 +76,12 @@ def render() -> None:
             st.error("Primary URL is required.")
             return
 
-        # Collect competitors
-        competitors = [u.strip() for u in [comp1, comp2, comp3] if u and u.strip()]
+        # Collect competitors from session state
+        competitors = [
+            u.strip()
+            for u in st.session_state.get("new_project_competitors", [])
+            if u and u.strip()
+        ]
 
         # Create project
         try:
@@ -66,6 +95,9 @@ def render() -> None:
         except Exception as e:
             st.error(f"Failed to create project: {e}")
             return
+
+        # Clear competitor state after successful creation
+        st.session_state["new_project_competitors"] = []
 
         if save_draft:
             st.session_state["page"] = "dashboard"
@@ -82,7 +114,7 @@ def render() -> None:
 
         def progress_callback(msg: str) -> None:
             steps.append(msg)
-            pct = min(len(steps) / 10, 0.95)
+            pct = min(len(steps) / 15, 0.95)
             progress_bar.progress(pct, text=msg)
             status_text.markdown(f"*{msg}*")
 

@@ -33,6 +33,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
+
+    // Auto-logout on expired/invalid token
+    if (res.status === 401) {
+      localStorage.removeItem('access_token');
+    }
+
     throw new ApiError(res.status, body.detail ?? 'Request failed');
   }
 
@@ -196,6 +202,15 @@ export interface RecommendationQuadrant {
   items: (string | RecommendationItem)[];
 }
 
+export interface TechStack {
+  cms?: string[];
+  framework?: string[];
+  hosting?: string[];
+  analytics?: string[];
+  cdn?: string[];
+  crm?: string[];
+}
+
 export interface ProjectSummary {
   id: string;
   name: string;
@@ -204,6 +219,7 @@ export interface ProjectSummary {
   screenshot_url: string | null;
   retina_score: number | null;
   lens_scores: LensScore[];
+  tech_stack?: TechStack;
   competitors: CompetitorSummary[];
   recommendations: RecommendationQuadrant[];
 }
@@ -341,6 +357,36 @@ export async function deleteArtifact(
   });
 }
 
+/* ── Screenshot endpoints ─────────────────────────────────────────────── */
+
+export async function uploadScreenshot(
+  projectId: string,
+  file: File,
+): Promise<{ screenshot_url: string }> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${BASE}/projects/${projectId}/screenshot`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new ApiError(res.status, body.detail ?? 'Upload failed');
+  }
+
+  return res.json() as Promise<{ screenshot_url: string }>;
+}
+
+export async function deleteScreenshot(projectId: string): Promise<void> {
+  await apiFetch(`/projects/${projectId}/screenshot`, { method: 'DELETE' });
+}
+
 /* ── Copilot endpoints ────────────────────────────────────────────────── */
 
 export interface CopilotMessage {
@@ -408,6 +454,29 @@ export async function retryPipeline(projectId: string): Promise<PipelineStatus> 
 
 export async function refreshProject(projectId: string): Promise<PipelineStatus> {
   return apiFetch<PipelineStatus>(`/projects/${projectId}/refresh`, { method: 'POST' });
+}
+
+/* ── PDF Export endpoints ─────────────────────────────────────────────── */
+
+export interface ExportJobResponse {
+  job_id: string;
+  status: string;
+}
+
+export interface ExportStatusResponse {
+  status: 'none' | 'pending' | 'generating' | 'complete' | 'error';
+  download_url: string | null;
+  error: string | null;
+}
+
+export async function startPdfExport(projectId: string): Promise<ExportJobResponse> {
+  return apiFetch<ExportJobResponse>(`/projects/${projectId}/export/pdf`, {
+    method: 'POST',
+  });
+}
+
+export async function getExportStatus(projectId: string): Promise<ExportStatusResponse> {
+  return apiFetch<ExportStatusResponse>(`/projects/${projectId}/export/status`);
 }
 
 /* ── Admin endpoints ──────────────────────────────────────────────────── */

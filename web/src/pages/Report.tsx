@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getProjectSummary, generateRecommendations, saveRecommendations, addCompetitor, removeCompetitor, refreshProject } from '../api';
-import type { ProjectSummary, LensScore, RecommendationQuadrant, RecommendationItem, QuadrantData } from '../api';
+import { getProjectSummary, generateRecommendations, saveRecommendations, addCompetitor, removeCompetitor, refreshProject, uploadScreenshot, deleteScreenshot, startPdfExport, getExportStatus } from '../api';
+import type { ProjectSummary, LensScore, RecommendationQuadrant, RecommendationItem, QuadrantData, ExportStatusResponse } from '../api';
 import { color, font, space, radius, sidebar as sidebarToken } from '../tokens';
 import { Sidebar } from '../components/Sidebar';
 import { NAV_ITEMS } from './Dashboard';
@@ -420,6 +420,35 @@ function ArrowCircleIcon() {
   );
 }
 
+function UploadIcon({ size = 28, col = color.textDim }: { size?: number; col?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth="1.5">
+      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
+function TrashIcon({ size = 16, col = '#fff' }: { size?: number; col?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth="2">
+      <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+    </svg>
+  );
+}
+
+function ReplaceIcon({ size = 16, col = '#fff' }: { size?: number; col?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={col} strokeWidth="2">
+      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
 /* ── Main Report Page ─────────────────────────────── */
 
 export function Report() {
@@ -459,9 +488,105 @@ export function Report() {
   // Refresh analysis state
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
 
-  // SHARE + EXPORT — UI PLACEHOLDERS, wire in later phase
+  // Screenshot upload state
+  const screenshotInputRef = useRef<HTMLInputElement>(null);
+  const [ssHover, setSsHover] = useState(false);
+  const [ssUploading, setSsUploading] = useState(false);
+  const [ssConfirmDelete, setSsConfirmDelete] = useState(false);
+
+  const handleScreenshotUpload = async (file: File) => {
+    if (!projectId || ssUploading) return;
+    setSsUploading(true);
+    try {
+      const resp = await uploadScreenshot(projectId, file);
+      setSummary((prev) => prev ? { ...prev, screenshot_url: resp.screenshot_url } : prev);
+      setToastMsg('Screenshot uploaded');
+    } catch (err: unknown) {
+      setToastMsg(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setSsUploading(false);
+      if (screenshotInputRef.current) screenshotInputRef.current.value = '';
+    }
+  };
+
+  const handleScreenshotDelete = async () => {
+    if (!projectId) return;
+    setSsConfirmDelete(false);
+    try {
+      await deleteScreenshot(projectId);
+      setSummary((prev) => prev ? { ...prev, screenshot_url: null } : prev);
+      setToastMsg('Screenshot removed');
+    } catch (err: unknown) {
+      setToastMsg(err instanceof Error ? err.message : 'Failed to remove screenshot');
+    }
+  };
+
+  const onScreenshotFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleScreenshotUpload(file);
+  };
+
+  // SHARE — UI PLACEHOLDER
   const handleShare = () => setToastMsg('Share Project — coming soon');
-  const handleExport = () => setToastMsg('Export Report — coming soon');
+
+  // PDF EXPORT — modal state
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportStatus, setExportStatus] = useState<ExportStatusResponse['status']>('none');
+  const [exportUrl, setExportUrl] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const exportPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopExportPoll = useCallback(() => {
+    if (exportPollRef.current) {
+      clearInterval(exportPollRef.current);
+      exportPollRef.current = null;
+    }
+  }, []);
+
+  const handleExport = async () => {
+    if (!projectId) return;
+    setExportModalOpen(true);
+    setExportStatus('pending');
+    setExportUrl(null);
+    setExportError(null);
+
+    try {
+      await startPdfExport(projectId);
+
+      // Poll for status
+      exportPollRef.current = setInterval(async () => {
+        try {
+          const status = await getExportStatus(projectId);
+          setExportStatus(status.status);
+          if (status.status === 'complete') {
+            setExportUrl(status.download_url);
+            stopExportPoll();
+          } else if (status.status === 'error') {
+            setExportError(status.error || 'Export failed');
+            stopExportPoll();
+          }
+        } catch {
+          // Keep polling on transient errors
+        }
+      }, 3000);
+    } catch (err) {
+      setExportStatus('error');
+      setExportError(err instanceof Error ? err.message : 'Failed to start export');
+    }
+  };
+
+  const handleExportRetry = () => {
+    stopExportPoll();
+    handleExport();
+  };
+
+  const closeExportModal = () => {
+    stopExportPoll();
+    setExportModalOpen(false);
+  };
+
+  // Clean up poll on unmount
+  useEffect(() => () => stopExportPoll(), [stopExportPoll]);
 
   const handleRegenerate = async () => {
     if (!projectId || regenerating) return;
@@ -574,7 +699,7 @@ export function Report() {
             <h1 style={styles.pageTitle}>
               <span style={styles.pageTitlePrefix}>Project</span>
               <span style={styles.pageTitleDivider}> | </span>
-              {summary.name}
+              <span style={styles.pageTitleName}>{summary.name}</span>
             </h1>
             <button
               style={styles.refreshBtn}
@@ -634,18 +759,127 @@ export function Report() {
               <a href={summary.primary_url} target="_blank" rel="noopener noreferrer" style={styles.projectUrl}>
                 {summary.primary_url}
               </a>
-              <div style={styles.screenshotWrap}>
+              {/* Hidden file input for screenshot upload */}
+              <input
+                ref={screenshotInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                style={{ display: 'none' }}
+                onChange={onScreenshotFileChange}
+              />
+
+              <div
+                style={styles.screenshotWrap}
+                onMouseEnter={() => setSsHover(true)}
+                onMouseLeave={() => { setSsHover(false); setSsConfirmDelete(false); }}
+              >
                 {summary.screenshot_url ? (
-                  <img src={summary.screenshot_url} alt={`${summary.name} screenshot`} style={styles.screenshotImg} />
+                  /* ── State 2: Screenshot present ── */
+                  <>
+                    <img src={summary.screenshot_url} alt={`${summary.name} screenshot`} style={styles.screenshotImg} />
+                    {ssHover && !ssUploading && (
+                      <div style={styles.ssOverlay}>
+                        {ssConfirmDelete ? (
+                          <div style={styles.ssConfirmBox}>
+                            <span style={styles.ssConfirmText}>Remove this screenshot?</span>
+                            <div style={styles.ssConfirmActions}>
+                              <button style={styles.ssConfirmYes} onClick={handleScreenshotDelete}>Confirm</button>
+                              <button style={styles.ssConfirmNo} onClick={() => setSsConfirmDelete(false)}>Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={styles.ssOverlayActions}>
+                            <button
+                              style={styles.ssOverlayBtn}
+                              onClick={() => screenshotInputRef.current?.click()}
+                              title="Replace screenshot"
+                            >
+                              <ReplaceIcon size={18} />
+                              <span style={styles.ssOverlayLabel}>Replace</span>
+                            </button>
+                            <button
+                              style={styles.ssOverlayBtn}
+                              onClick={() => setSsConfirmDelete(true)}
+                              title="Delete screenshot"
+                            >
+                              <TrashIcon size={18} />
+                              <span style={styles.ssOverlayLabel}>Delete</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {ssUploading && (
+                      <div style={styles.ssOverlay}>
+                        <SmallSpinner />
+                        <span style={{ color: '#fff', fontFamily: font.family, fontSize: font.sizeSm, marginTop: 6 }}>Uploading…</span>
+                      </div>
+                    )}
+                  </>
                 ) : (
-                  <div style={styles.screenshotPlaceholder}>
-                    <ImagePlaceholderIcon />
+                  /* ── State 1: No screenshot — upload zone ── */
+                  <div
+                    style={styles.ssUploadZone}
+                    onClick={() => !ssUploading && screenshotInputRef.current?.click()}
+                  >
+                    {ssUploading ? (
+                      <>
+                        <SmallSpinner />
+                        <span style={styles.ssUploadLabel}>Uploading…</span>
+                      </>
+                    ) : (
+                      <>
+                        <UploadIcon size={28} col={color.textDim} />
+                        <span style={styles.ssUploadLabel}>Add Screenshot</span>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Card 2 — Competitors */}
+            {/* Card 2 — Technology Stack */}
+            {summary.tech_stack && Object.keys(summary.tech_stack).length > 0 && (
+              <div style={styles.card}>
+                <h2 style={styles.cardTitle}>Technology Stack</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: space.sm }}>
+                  {(['cms', 'analytics', 'crm'] as const).map((cat) => {
+                    const items = summary.tech_stack?.[cat];
+                    if (!items || items.length === 0) return null;
+                    const labels: Record<string, string> = {
+                      cms: 'CMS',
+                      analytics: 'Analytics',
+                      crm: 'CRM',
+                    };
+                    return (
+                      <div key={cat}>
+                        <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 600, color: color.textSecondary, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
+                          {labels[cat]}
+                        </p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {items.map((tech) => (
+                            <span key={tech} style={{
+                              display: 'inline-block',
+                              padding: '3px 10px',
+                              borderRadius: '999px',
+                              fontSize: '0.78rem',
+                              fontWeight: 500,
+                              background: color.surfaceAlt,
+                              color: color.textPrimary,
+                              border: `1px solid ${color.border}`,
+                            }}>
+                              {tech}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Card 3 — Competitors */}
             <div style={styles.card}>
               <div style={styles.cardHeaderRow}>
                 <h2 style={{ ...styles.cardTitle, marginBottom: 0 }}>Competitors</h2>
@@ -780,6 +1014,105 @@ export function Report() {
         </div>
       </main>
 
+      {/* Export Modal */}
+      {exportModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+        }} onClick={closeExportModal}>
+          <div style={{
+            background: '#fff', borderRadius: 12, padding: '32px 36px',
+            width: 420, maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          }} onClick={(e) => e.stopPropagation()}>
+
+            {exportStatus === 'complete' && exportUrl ? (
+              /* ── Complete ── */
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>✓</div>
+                <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0A0A2E', marginBottom: 8 }}>
+                  Your report is ready
+                </h3>
+                <a
+                  href={exportUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-block', marginTop: 16, padding: '10px 28px',
+                    background: '#076EFF', color: '#fff', borderRadius: 20,
+                    fontWeight: 600, fontSize: 14, textDecoration: 'none',
+                  }}
+                >
+                  Download Report
+                </a>
+                <div style={{ marginTop: 16 }}>
+                  <button onClick={closeExportModal} style={{
+                    background: 'none', border: 'none', color: '#6B7280',
+                    fontSize: 13, cursor: 'pointer',
+                  }}>Close</button>
+                </div>
+              </div>
+            ) : exportStatus === 'error' ? (
+              /* ── Error ── */
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>⚠</div>
+                <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0A0A2E', marginBottom: 8 }}>
+                  Export Failed
+                </h3>
+                <p style={{ color: '#EF4444', fontSize: 13, marginBottom: 16 }}>
+                  {exportError || 'An unexpected error occurred'}
+                </p>
+                <button onClick={handleExportRetry} style={{
+                  padding: '10px 28px', background: '#076EFF', color: '#fff',
+                  borderRadius: 20, fontWeight: 600, fontSize: 14, border: 'none',
+                  cursor: 'pointer',
+                }}>Try Again</button>
+                <div style={{ marginTop: 12 }}>
+                  <button onClick={closeExportModal} style={{
+                    background: 'none', border: 'none', color: '#6B7280',
+                    fontSize: 13, cursor: 'pointer',
+                  }}>Close</button>
+                </div>
+              </div>
+            ) : (
+              /* ── Generating ── */
+              <div>
+                <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0A0A2E', marginBottom: 20 }}>
+                  Generating Report
+                </h3>
+                {[
+                  { label: 'Gathering report data', done: exportStatus !== 'pending' },
+                  { label: 'Building charts', done: exportStatus === 'generating' || exportStatus === 'complete' },
+                  { label: 'Assembling pages', done: exportStatus === 'generating' || exportStatus === 'complete' },
+                  { label: 'Finalizing PDF', done: false },
+                ].map((step, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', padding: '8px 0',
+                    color: step.done ? '#0A0A2E' : '#6B7280',
+                  }}>
+                    <span style={{
+                      width: 24, height: 24, borderRadius: '50%', marginRight: 12,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 13, flexShrink: 0,
+                      background: step.done ? '#076EFF' : 'transparent',
+                      color: step.done ? '#fff' : '#6B7280',
+                      border: step.done ? 'none' : '2px solid #E2E8F0',
+                      animation: (!step.done && i === (exportStatus === 'pending' ? 0 : 2)) ? 'spin 1s linear infinite' : 'none',
+                    }}>
+                      {step.done ? '✓' : ''}
+                    </span>
+                    <span style={{ fontSize: 14 }}>{step.label}</span>
+                  </div>
+                ))}
+                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 16 }}>
+                  This usually takes 15–30 seconds
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Toast */}
       {toastMsg && <Toast message={toastMsg} onDone={dismissToast} />}
 
@@ -857,6 +1190,9 @@ const styles: Record<string, React.CSSProperties> = {
     color: color.textDim,
     fontWeight: font.weightRegular,
   },
+  pageTitleName: {
+    fontWeight: font.weightRegular,
+  } as React.CSSProperties,
   refreshBtn: {
     background: 'none',
     border: `1px solid ${color.border}`,
@@ -945,7 +1281,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: color.bgCard,
     borderRadius: radius.lg,
     boxShadow: color.shadow,
-    padding: `${space.sm} 0`,
+    padding: `${space.sm} 0 0 0`,
     marginBottom: space.xl,
     overflow: 'hidden',
   },
@@ -958,15 +1294,16 @@ const styles: Record<string, React.CSSProperties> = {
     gap: space.xs,
     padding: `${space.sm} ${space.xs}`,
     border: 'none',
+    borderBottom: '2px solid transparent',
     background: 'none',
     cursor: 'pointer',
     fontFamily: font.family,
-    fontSize: '0.875rem',  // 14px (was 12px)
+    fontSize: '0.875rem',
     fontWeight: font.weightMedium,
     color: color.text,
     textAlign: 'center',
-    transition: 'opacity 0.15s',
-    opacity: 0.5,
+    transition: 'border-color 0.15s',
+    opacity: 1,
     minWidth: 0,
   },
   lensIcon: {
@@ -1041,6 +1378,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: radius.lg,
     overflow: 'hidden',
     backgroundColor: '#E0E0E0',
+    position: 'relative' as const,
   },
   screenshotImg: {
     width: '100%',
@@ -1054,6 +1392,94 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  ssUploadZone: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    gap: space.xs,
+    transition: 'background-color 0.15s',
+  },
+  ssUploadLabel: {
+    fontFamily: font.family,
+    fontSize: font.sizeSm,
+    color: color.textDim,
+    fontWeight: font.weightMedium,
+  },
+  ssOverlay: {
+    position: 'absolute' as const,
+    inset: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+    borderRadius: radius.lg,
+  },
+  ssOverlayActions: {
+    display: 'flex',
+    gap: space.lg,
+    alignItems: 'center',
+  },
+  ssOverlayBtn: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: 4,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: space.sm,
+    borderRadius: radius.md,
+    transition: 'background-color 0.15s',
+  },
+  ssOverlayLabel: {
+    fontFamily: font.family,
+    fontSize: font.sizeXs,
+    color: '#fff',
+    fontWeight: font.weightMedium,
+  },
+  ssConfirmBox: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  ssConfirmText: {
+    fontFamily: font.family,
+    fontSize: font.sizeSm,
+    color: '#fff',
+    fontWeight: font.weightMedium,
+  },
+  ssConfirmActions: {
+    display: 'flex',
+    gap: space.sm,
+  },
+  ssConfirmYes: {
+    padding: `${space.xxs} ${space.md}`,
+    borderRadius: radius.pill,
+    border: 'none',
+    backgroundColor: '#E74C3C',
+    color: '#fff',
+    fontFamily: font.family,
+    fontSize: font.sizeSm,
+    fontWeight: font.weightMedium,
+    cursor: 'pointer',
+  } as React.CSSProperties,
+  ssConfirmNo: {
+    padding: `${space.xxs} ${space.md}`,
+    borderRadius: radius.pill,
+    border: '1px solid rgba(255,255,255,0.5)',
+    backgroundColor: 'transparent',
+    color: '#fff',
+    fontFamily: font.family,
+    fontSize: font.sizeSm,
+    cursor: 'pointer',
+  } as React.CSSProperties,
 
   /* Competitors */
   emptyText: {

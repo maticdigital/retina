@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import plotly.graph_objects as go
 
-from app.components.styles import COLORS, hex_to_rgba
+from app.components.styles import COLORS, LENS_COLORS, LENS_SHORT_LABELS, hex_to_rgba
 
-# Lens ordering and labels matching the scoring system
+# Lens ordering
 LENS_ORDER = [
     "performance_technical_health",
     "seo_ai_visibility",
@@ -24,11 +24,11 @@ LENS_LABELS = {
 }
 
 SITE_COLORS = [
-    "#076EFF",  # Primary — blue
-    "#EF4444",  # Competitor 1 — red
-    "#F59E0B",  # Competitor 2 — amber
-    "#10B981",  # Competitor 3 — green
-    "#8B5CF6",  # Competitor 4 — purple
+    "#076EFF",
+    "#E74C3C",
+    "#FF8C00",
+    "#00C864",
+    "#9B59B6",
 ]
 
 _CHART_LAYOUT = dict(
@@ -39,41 +39,64 @@ _CHART_LAYOUT = dict(
 )
 
 
-def radar_chart(scores: dict[str, float | None], max_score: float = 20.0) -> go.Figure:
-    """Radar/spider chart showing all 5 lens scores."""
-    labels = [LENS_LABELS.get(k, k) for k in LENS_ORDER]
-    values = [scores.get(k) or 0 for k in LENS_ORDER]
-    # Close the polygon
-    labels_closed = labels + [labels[0]]
-    values_closed = values + [values[0]]
+def segmented_donut_chart(
+    scores: dict[str, float | None],
+    max_per_lens: float = 20.0,
+) -> go.Figure:
+    """Segmented 5-arc donut chart for composite Retina Score.
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(
-        r=values_closed,
-        theta=labels_closed,
-        fill="toself",
-        fillcolor=hex_to_rgba(COLORS["accent"], 0.13),
-        line=dict(color=COLORS["accent"], width=2),
-        marker=dict(size=6, color=COLORS["accent"]),
-    ))
-    fig.update_layout(
-        **_CHART_LAYOUT,
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, max_score],
-                gridcolor=COLORS["border"],
-                tickfont=dict(size=10, color=COLORS["text_dim"]),
-            ),
-            angularaxis=dict(
-                gridcolor=COLORS["border"],
-                tickfont=dict(size=12, color=COLORS["text_muted"]),
-            ),
-            bgcolor="rgba(0,0,0,0)",
-        ),
-        showlegend=False,
-        height=350,
+    Each lens occupies exactly 1/5 of the circle. Within each fifth,
+    the colored arc fills proportionally to the lens score out of 20.
+    """
+    values: list[float] = []
+    colors: list[str] = []
+    custom_labels: list[str] = []
+
+    for key in LENS_ORDER:
+        score = scores.get(key) or 0
+        remainder = max_per_lens - score
+        values.extend([max(score, 0.01), max(remainder, 0.01)])
+        colors.extend([LENS_COLORS.get(key, COLORS["accent"]), "#F0F2F5"])
+        label = LENS_LABELS.get(key, key)
+        custom_labels.extend([f"{label}: {score:.1f}/20", ""])
+
+    total = sum(scores.get(k) or 0 for k in LENS_ORDER)
+
+    fig = go.Figure(
+        go.Pie(
+            values=values,
+            labels=custom_labels,
+            hole=0.72,
+            sort=False,
+            direction="clockwise",
+            rotation=90,
+            marker=dict(colors=colors, line=dict(color="#F0F2F5", width=2)),
+            textinfo="none",
+            hoverinfo="label",
+            hovertemplate="%{label}<extra></extra>",
+        )
     )
+
+    # Center text — total score
+    fig.add_annotation(
+        text=(
+            f"<b style='font-size:42px;color:{COLORS['text']};'>{total:.1f}</b>"
+            f"<br><span style='font-size:13px;color:{COLORS['text_muted']};'>/100</span>"
+        ),
+        x=0.5,
+        y=0.5,
+        showarrow=False,
+        font=dict(size=14),
+    )
+
+    fig.update_layout(
+        showlegend=False,
+        margin=dict(l=10, r=10, t=10, b=10),
+        height=300,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+    )
+
     return fig
 
 

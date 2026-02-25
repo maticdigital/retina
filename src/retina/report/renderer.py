@@ -166,7 +166,7 @@ REPORT_TEMPLATE = """\
 <head>
 <meta charset="UTF-8">
 <style>
-/* Inter font — falls back to system sans-serif for PDF reliability */
+/* Retina PDF Report — system sans-serif for WeasyPrint reliability */
 
 @page {
     size: Letter;
@@ -180,23 +180,35 @@ REPORT_TEMPLATE = """\
 }
 
 html, body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    font-size: 11px;
-    line-height: 1.5;
-    color: #000227;
-    -webkit-font-smoothing: antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 10.5px;
+    line-height: 1.6;
+    color: #0A0A2E;
+    background: #FFFFFF;
 }
 
 .page {
     width: 8.5in;
     min-height: 11in;
-    padding: 0.75in 0.85in;
+    padding: 0.7in 0.8in;
     page-break-after: always;
     position: relative;
+    background: #FFFFFF;
 }
 
 .page:last-child {
     page-break-after: avoid;
+}
+
+/* Page footer — page number + faint logo mark */
+.page-footer {
+    position: absolute;
+    bottom: 0.4in;
+    left: 0.8in;
+    right: 0.8in;
+    text-align: center;
+    font-size: 9px;
+    color: #6B7280;
 }
 
 /* ---- Cover ---- */
@@ -205,7 +217,7 @@ html, body {
     flex-direction: column;
     justify-content: center;
     align-items: flex-start;
-    background: #000227;
+    background: #0A0A2E;
     color: #FFFFFF;
     padding: 1.2in 1in;
 }
@@ -217,6 +229,10 @@ html, body {
 .cover-logo svg {
     height: 48px;
     width: auto;
+}
+
+.cover-score-ring {
+    margin-bottom: 0.3in;
 }
 
 .cover-title {
@@ -264,112 +280,128 @@ html, body {
     font-size: 22px;
     font-weight: 600;
     letter-spacing: -0.3px;
-    margin-bottom: 0.3in;
+    margin-bottom: 0.25in;
     padding-bottom: 8px;
     border-bottom: 2px solid #076EFF;
-    color: #000227;
+    color: #0A0A2E;
+}
+
+.section-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6B7280;
+    margin-bottom: 0.15in;
 }
 
 .section-subtitle {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 400;
-    color: #5A6778;
-    margin-bottom: 0.25in;
+    color: #6B7280;
+    margin-bottom: 0.2in;
     line-height: 1.6;
 }
 
 /* ---- Body text ---- */
 .body-text {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 400;
-    line-height: 1.7;
-    color: #2A3444;
+    line-height: 1.6;
+    color: #0A0A2E;
     margin-bottom: 14px;
 }
 
 .body-text-lg {
-    font-size: 12px;
+    font-size: 11.5px;
     line-height: 1.7;
-    color: #2A3444;
+    color: #0A0A2E;
     margin-bottom: 16px;
+}
+
+/* ---- Cards ---- */
+.card {
+    background: #F5F7FA;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 14px;
+}
+
+/* ---- Lens color bar at top of page ---- */
+.lens-color-bar {
+    height: 4px;
+    margin: -0.7in -0.8in 0.5in -0.8in;
 }
 
 /* ---- Scoring Overview ---- */
 .lens-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
     margin-bottom: 0.2in;
 }
 
 .lens-card {
-    width: calc(50% - 8px);
-    padding: 14px 16px;
-    border: 1px solid #E8EDF3;
-    border-radius: 6px;
-    background: #FAFBFC;
+    padding: 12px 16px;
+    background: #F5F7FA;
+    border-radius: 8px;
+    margin-bottom: 10px;
 }
 
 .lens-card-title {
     font-size: 12px;
     font-weight: 600;
-    color: #000227;
-    margin-bottom: 6px;
+    color: #0A0A2E;
+    margin-bottom: 4px;
 }
 
 .lens-card-desc {
     font-size: 10px;
     font-weight: 400;
-    color: #5A6778;
+    color: #6B7280;
     line-height: 1.55;
 }
 
 .lens-note {
     font-size: 10px;
-    color: #5A6778;
+    color: #6B7280;
     font-style: italic;
     margin-top: 0.15in;
     padding: 10px 14px;
-    background: #F4F6F9;
-    border-radius: 4px;
+    background: #F5F7FA;
+    border-radius: 8px;
 }
 
 /* ---- Scorecard ---- */
 .scorecard-header {
-    display: flex;
-    align-items: center;
-    gap: 0.3in;
-    margin-bottom: 0.25in;
+    margin-bottom: 0.2in;
 }
 
 .scorecard-label {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
-    color: #076EFF;
+    letter-spacing: 0.08em;
+    color: #6B7280;
     margin-bottom: 4px;
 }
 
 .scorecard-url {
     font-size: 16px;
     font-weight: 600;
-    color: #000227;
+    color: #0A0A2E;
     margin-bottom: 2px;
 }
 
 .scorecard-body {
     display: flex;
-    gap: 0.3in;
     align-items: flex-start;
 }
 
 .scorecard-screenshot {
     width: 260px;
     flex-shrink: 0;
-    border: 1px solid #E8EDF3;
-    border-radius: 6px;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
     overflow: hidden;
+    margin-right: 24px;
 }
 
 .scorecard-screenshot img {
@@ -392,18 +424,87 @@ html, body {
     margin-bottom: 0.35in;
 }
 
+.analyst-lens-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.analyst-lens-icon {
+    width: 28px;
+    height: 28px;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.analyst-lens-icon svg {
+    width: 28px;
+    height: 28px;
+}
+
 .analyst-lens-title {
     font-size: 16px;
     font-weight: 600;
-    color: #000227;
-    margin-bottom: 4px;
+    color: #0A0A2E;
+    margin-bottom: 2px;
 }
 
 .analyst-lens-score {
     font-size: 13px;
     font-weight: 500;
     color: #076EFF;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
+}
+
+/* Sub-dimension rows with horizontal bars */
+.subdim-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #E2E8F0;
+}
+
+.subdim-row:last-child {
+    border-bottom: none;
+}
+
+.subdim-name {
+    width: 180px;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: #0A0A2E;
+    flex-shrink: 0;
+}
+
+.subdim-bar-track {
+    flex: 1;
+    height: 8px;
+    background: #E2E8F0;
+    border-radius: 4px;
+    margin: 0 12px;
+    overflow: hidden;
+}
+
+.subdim-bar-fill {
+    height: 8px;
+    border-radius: 4px;
+}
+
+.subdim-score {
+    width: 40px;
+    text-align: right;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #0A0A2E;
+    flex-shrink: 0;
+}
+
+.subdim-observation {
+    font-size: 9.5px;
+    color: #6B7280;
+    line-height: 1.5;
+    padding: 4px 0 4px 180px;
+    margin-top: -4px;
 }
 
 .subdim-table {
@@ -417,12 +518,12 @@ html, body {
     padding: 6px 10px;
     text-align: left;
     font-size: 10px;
-    border-bottom: 1px solid #E8EDF3;
+    border-bottom: 1px solid #E2E8F0;
 }
 
 .subdim-table th {
     font-weight: 600;
-    color: #5A6778;
+    color: #6B7280;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     font-size: 9px;
@@ -431,24 +532,24 @@ html, body {
 .subdim-table td:last-child {
     text-align: right;
     font-weight: 600;
-    color: #000227;
+    color: #0A0A2E;
 }
 
 .observations-text {
-    font-size: 11px;
-    line-height: 1.65;
-    color: #2A3444;
+    font-size: 10.5px;
+    line-height: 1.6;
+    color: #0A0A2E;
     padding: 12px 16px;
-    background: #FAFBFC;
-    border-radius: 4px;
+    background: #F5F7FA;
+    border-radius: 8px;
     border-left: 3px solid #076EFF;
     margin-bottom: 10px;
 }
 
 .analyst-screenshot-thumb {
     max-width: 200px;
-    border: 1px solid #E8EDF3;
-    border-radius: 4px;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
     margin-top: 8px;
 }
 
@@ -456,14 +557,12 @@ html, body {
 .quadrant-legend {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
     margin-bottom: 0.15in;
 }
 
 .quadrant-legend-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    display: inline-block;
+    margin-right: 16px;
     font-size: 10px;
     font-weight: 500;
 }
@@ -473,6 +572,8 @@ html, body {
     height: 10px;
     border-radius: 50%;
     display: inline-block;
+    margin-right: 4px;
+    vertical-align: middle;
 }
 
 .quadrant-chart {
@@ -480,74 +581,68 @@ html, body {
 }
 
 /* ---- Roadmap ---- */
+.roadmap-section {
+    margin-bottom: 0.2in;
+    padding-left: 4px;
+    border-left: 4px solid #E2E8F0;
+}
+
+.roadmap-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #0A0A2E;
+    margin-bottom: 8px;
+    padding-left: 12px;
+}
+
 .roadmap-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid #E8EDF3;
+    padding: 8px 0 8px 12px;
+    border-bottom: 1px solid #E2E8F0;
 }
 
-.roadmap-num {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
-    color: #FFFFFF;
-    flex-shrink: 0;
-}
-
-.roadmap-content {
-    flex: 1;
+.roadmap-item:last-child {
+    border-bottom: none;
 }
 
 .roadmap-title {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    color: #000227;
+    color: #0A0A2E;
     margin-bottom: 2px;
 }
 
 .roadmap-desc {
     font-size: 10px;
-    color: #5A6778;
+    color: #6B7280;
     line-height: 1.5;
 }
 
-.roadmap-meta {
-    display: flex;
-    gap: 12px;
-    margin-top: 4px;
-}
-
-.roadmap-tag {
+.roadmap-lens-tag {
     font-size: 9px;
     font-weight: 500;
-    padding: 2px 8px;
+    padding: 1px 6px;
     border-radius: 3px;
-    background: #F0F3F7;
-    color: #5A6778;
+    background: #F5F7FA;
+    color: #6B7280;
+    display: inline-block;
+    margin-top: 4px;
 }
 
 /* ---- Methodology ---- */
 .methodology {
-    padding-top: 0.3in;
+    padding-top: 0.2in;
 }
 
 .methodology p {
     font-size: 10px;
     line-height: 1.65;
-    color: #5A6778;
+    color: #6B7280;
     margin-bottom: 10px;
 }
 
 .methodology .source-label {
     font-weight: 600;
-    color: #000227;
+    color: #0A0A2E;
 }
 
 .footer-logo {
@@ -557,6 +652,50 @@ html, body {
 
 .footer-logo svg {
     height: 28px;
+}
+
+/* ---- Tech Stack summary ---- */
+.tech-row {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 6px;
+}
+
+.tech-label {
+    width: 100px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    flex-shrink: 0;
+}
+
+.tech-value {
+    font-size: 10.5px;
+    color: #0A0A2E;
+}
+
+/* ---- How Retina Works card ---- */
+.explainer-card {
+    background: #F5F7FA;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-top: 0.2in;
+}
+
+.explainer-card-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #0A0A2E;
+    margin-bottom: 8px;
+}
+
+.explainer-card p {
+    font-size: 10px;
+    line-height: 1.6;
+    color: #6B7280;
+    margin-bottom: 6px;
 }
 
 </style>
@@ -572,6 +711,10 @@ html, body {
     {% else %}
     <div class="cover-logo" style="font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">RETINA</div>
     {% endif %}
+
+    <div class="cover-score-ring">
+        {{ cover_score_ring_svg }}
+    </div>
 
     <h1 class="cover-title">Digital Experience<br><span class="cover-accent">Readiness Report</span></h1>
     <hr class="cover-divider">
@@ -595,16 +738,40 @@ html, body {
 <div class="page">
     <h2 class="section-header">Executive Summary</h2>
 
+    {% if screenshot_data_uri %}
+    <div style="text-align: center; margin-bottom: 16px;">
+        <img src="{{ screenshot_data_uri }}" alt="Site screenshot"
+             style="max-width: 400px; border: 1px solid #E2E8F0; border-radius: 8px;" />
+    </div>
+    {% endif %}
+
     {% if executive_summary %}
         {% for paragraph in executive_summary_paragraphs %}
         <p class="body-text-lg">{{ paragraph }}</p>
         {% endfor %}
     {% else %}
-    <p class="body-text-lg" style="color: #9BA8B7; font-style: italic;">
-        Executive summary pending. Add competitor URLs and an Anthropic API key to
-        generate a strategic competitive analysis with prioritized recommendations.
+    <p class="body-text-lg" style="color: #6B7280; font-style: italic;">
+        Executive summary will be generated once competitive analysis is complete.
     </p>
     {% endif %}
+
+    {% if tech_summary %}
+    <div class="section-label" style="margin-top: 0.2in;">Technology Stack</div>
+    {% for cat_label, tech_names in tech_summary %}
+    <div class="tech-row">
+        <div class="tech-label">{{ cat_label }}</div>
+        <div class="tech-value">{{ tech_names }}</div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="explainer-card">
+        <div class="explainer-card-title">How Retina Works</div>
+        <p>Retina evaluates digital experiences across five lenses, each scored 0\u201320 points.
+        Two automated lenses assess technical performance and SEO visibility. Three analyst-scored
+        lenses evaluate brand messaging, experience design, and conversion strategy. The composite
+        Retina Score (0\u2013100) reveals exactly where online performance is being won or lost.</p>
+    </div>
 </div>
 
 <!-- ============================================================ -->
@@ -613,9 +780,8 @@ html, body {
 <div class="page">
     <h2 class="section-header">About This Report</h2>
     <p class="section-subtitle">
-        Retina evaluates real-world digital experiences to reveal where online performance
-        is being won or lost. Five lenses assess digital experience readiness across
-        complementary dimensions of website performance and strategic effectiveness.
+        Five lenses assess digital experience readiness across complementary dimensions
+        of website performance and strategic effectiveness.
     </p>
 
     <div class="lens-grid">
@@ -628,10 +794,9 @@ html, body {
     </div>
 
     <div class="lens-note">
-        Each lens is scored 0–20 points. The composite Retina Score (0–100) represents
-        overall digital experience readiness. Digital experience is now the primary driver
-        of awareness, consideration, and conversion — gaps in clarity, usability, or
-        technical performance create friction that costs pipeline, even for strong brands.
+        Each lens is scored 0\u201320 points. The composite Retina Score (0\u2013100) represents
+        overall digital experience readiness. Gaps in clarity, usability, or technical
+        performance create friction that costs pipeline \u2014 even for strong brands.
     </div>
 </div>
 
@@ -643,10 +808,8 @@ html, body {
     <h2 class="section-header">{{ sc.label }}</h2>
 
     <div class="scorecard-header">
-        <div>
-            <div class="scorecard-label">{{ sc.type_label }}</div>
-            <div class="scorecard-url">{{ sc.url }}</div>
-        </div>
+        <div class="scorecard-label">{{ sc.type_label }}</div>
+        <div class="scorecard-url">{{ sc.url }}</div>
     </div>
 
     <div class="scorecard-body">
@@ -660,6 +823,11 @@ html, body {
             <div style="text-align: center; margin-bottom: 12px;">
                 {{ sc.score_ring_svg }}
             </div>
+            {% if sc.interpretation_text %}
+            <p class="body-text" style="text-align: center; margin-bottom: 12px; color: #6B7280;">
+                {{ sc.interpretation_text }}
+            </p>
+            {% endif %}
             {{ sc.bar_chart_svg }}
         </div>
     </div>
@@ -680,13 +848,16 @@ html, body {
     <h2 class="section-header">Competitive Comparison</h2>
     <p class="section-subtitle">
         Competitive positioning across all five Retina lenses. Relative strengths
-        and gaps are immediately visible — revealing where the primary site
-        over-performs, under-performs, or is on-par with the competitive set.
+        and gaps are immediately visible.
     </p>
 
     <div class="comparison-chart">
         {{ comparison_chart_svg }}
     </div>
+
+    {% if competitive_narrative %}
+    <p class="body-text-lg" style="margin-top: 0.2in;">{{ competitive_narrative }}</p>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -695,6 +866,10 @@ html, body {
 <!-- ============================================================ -->
 {% for obs_page in analyst_pages %}
 <div class="page">
+    {% if obs_page[0].lens_color %}
+    <div class="lens-color-bar" style="background: {{ obs_page[0].lens_color }};"></div>
+    {% endif %}
+
     <h2 class="section-header">Analyst Observations</h2>
 
     {% for obs in obs_page %}
@@ -703,26 +878,19 @@ html, body {
         <div class="analyst-lens-score">{{ obs.score }} / 20</div>
 
         {% if obs.subdimensions %}
-        <table class="subdim-table">
-            <thead>
-                <tr>
-                    <th>Sub-Dimension</th>
-                    <th>Score</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for dim_name, dim_score, dim_max in obs.subdimensions %}
-                <tr>
-                    <td>{{ dim_name }}</td>
-                    <td>{{ dim_score }} / {{ dim_max }}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
+        {% for dim_name, dim_score, dim_max in obs.subdimensions %}
+        <div class="subdim-row">
+            <div class="subdim-name">{{ dim_name }}</div>
+            <div class="subdim-bar-track">
+                <div class="subdim-bar-fill" style="width: {{ (dim_score|float / dim_max|float * 100)|round }}%; background: {{ obs.lens_color or '#076EFF' }};"></div>
+            </div>
+            <div class="subdim-score">{{ dim_score }} / {{ dim_max }}</div>
+        </div>
+        {% endfor %}
         {% endif %}
 
         {% if obs.observations %}
-        <div class="observations-text">{{ obs.observations }}</div>
+        <div class="observations-text" style="margin-top: 12px; border-left-color: {{ obs.lens_color or '#076EFF' }};">{{ obs.observations }}</div>
         {% endif %}
 
         {% if obs.screenshot_uri %}
@@ -734,14 +902,13 @@ html, body {
 {% endfor %}
 
 <!-- ============================================================ -->
-<!-- STRATEGIC QUADRANT                                             -->
+<!-- RECOMMENDATIONS                                                -->
 <!-- ============================================================ -->
 {% if has_recommendations %}
 <div class="page">
     <h2 class="section-header">Where We Go From Here</h2>
     <p class="section-subtitle">
         Recommendations mapped by effort and impact to guide strategic prioritization.
-        Numbers correspond to the prioritized roadmap on the following page.
     </p>
 
     <div class="quadrant-chart">
@@ -764,22 +931,21 @@ html, body {
 <div class="page">
     <h2 class="section-header">Prioritized Roadmap</h2>
     <p class="section-subtitle">
-        Actionable recommendations in suggested execution sequence — starting with
-        no-brainer quick wins and building toward transformational strategic investments.
+        Actionable recommendations in suggested execution sequence.
     </p>
 
-    {% for rec in roadmap_items %}
-    <div class="roadmap-item">
-        <div class="roadmap-num" style="background: {{ rec.color }};">{{ rec.num }}</div>
-        <div class="roadmap-content">
+    {% for section in roadmap_sections %}
+    <div class="roadmap-section" style="border-left-color: {{ section.color }};">
+        <div class="roadmap-section-title" style="color: {{ section.color }};">{{ section.label }}</div>
+        {% for rec in section.recs %}
+        <div class="roadmap-item">
             <div class="roadmap-title">{{ rec.title }}</div>
             <div class="roadmap-desc">{{ rec.description }}</div>
-            <div class="roadmap-meta">
-                <span class="roadmap-tag">{{ rec.quadrant_label }}</span>
-                <span class="roadmap-tag">Effort: {{ rec.effort }}</span>
-                <span class="roadmap-tag">Impact: {{ rec.impact }}</span>
-            </div>
+            {% if rec.lens %}
+            <span class="roadmap-lens-tag">{{ rec.lens }}</span>
+            {% endif %}
         </div>
+        {% endfor %}
     </div>
     {% endfor %}
 </div>
@@ -797,39 +963,34 @@ html, body {
             evaluation to surface exactly where gaps are and what to do about them.
         </p>
         <p>
-            <span class="source-label">Automated Scoring</span> — Powered by Google
+            <span class="source-label">Automated Scoring</span> \u2014 Powered by Google
             Lighthouse via the PageSpeed Insights API. Each URL is analyzed for both
             mobile and desktop, producing scores for Performance, Accessibility, Best
             Practices, and SEO, plus Core Web Vitals metrics (LCP, FCP, CLS, TBT,
-            INP, Speed Index). Mobile scores are used as the primary benchmark,
-            reflecting Google's mobile-first indexing approach.
+            INP, Speed Index).
         </p>
         <p>
-            <span class="source-label">Technology Detection</span> — Performed via
-            the BuiltWith API, identifying the technology choices that define a site's
-            capabilities and constraints: CMS, hosting, CDN, frameworks, analytics,
-            and security infrastructure.
+            <span class="source-label">Technology Detection</span> \u2014 Performed via
+            the BuiltWith API, identifying the technology choices that define a site\u2019s
+            capabilities and constraints.
         </p>
         <p>
-            <span class="source-label">Strategic Evaluation</span> — Brand &amp; Messaging,
+            <span class="source-label">Strategic Evaluation</span> \u2014 Brand &amp; Messaging,
             Experience &amp; Design, and Conversion &amp; Strategy are evaluated by Matic
-            Digital analysts using a structured rubric. Each lens includes documented
-            sub-dimensions, scored observations, and supporting evidence.
+            Digital analysts using a structured rubric with documented sub-dimensions,
+            scored observations, and supporting evidence.
         </p>
         <p>
-            <span class="source-label">AI-Assisted Analysis</span> — Powered by
-            Anthropic's Claude. The model synthesizes automated data and analyst
+            <span class="source-label">AI-Assisted Analysis</span> \u2014 Powered by
+            Anthropic\u2019s Claude. The model synthesizes automated data and analyst
             findings to produce competitive comparisons, gap identification, and
-            prioritized strategic recommendations mapped by effort and impact.
+            prioritized strategic recommendations.
         </p>
         <p style="margin-top: 18px;">
             <span class="source-label">Scoring Scale:</span>
-            Each of the five lenses is scored 0\u201320 points. The composite Retina
-            Score (0\u2013100) represents overall digital experience readiness.
-            Automated lenses contribute up to 40 points. Analyst-scored lenses
-            contribute up to 60 points. Score tiers: 0\u201325 (Poor — modernization
-            needed), 26\u201350 (Challenging — focus needed), 51\u201375 (Functional —
-            optimization opportunity), 76\u2013100 (Ideal — positioned for growth).
+            Each lens is scored 0\u201320 points. The composite Retina Score (0\u2013100)
+            represents overall digital experience readiness. Score tiers:
+            0\u201325 (Poor), 26\u201350 (Challenging), 51\u201375 (Functional), 76\u2013100 (Ideal).
         </p>
     </div>
 
@@ -856,6 +1017,52 @@ LENS_NAMES_FULL = {
     "brand_messaging": "Brand & Messaging",
     "experience_design": "Experience & Design",
     "conversion_strategy": "Conversion & Strategy",
+}
+
+LENS_COLORS = {
+    "performance_technical_health": "#076EFF",
+    "seo_ai_visibility": "#00C864",
+    "brand_messaging": "#9B59B6",
+    "experience_design": "#E74C3C",
+    "conversion_strategy": "#FF8C00",
+}
+
+ROADMAP_QUADRANT_COLORS = {
+    "no_brainer": "#00C864",
+    "quick_win": "#FFC800",
+    "growth_move": "#4da6ff",
+    "transformational": "#FF8C00",
+}
+
+# Category mapping for tech stack summary
+TECH_CATEGORY_MAP = {
+    "Hosted Solution": "CMS",
+    "Headless": "CMS",
+    "Enterprise": "CMS",
+    "CMS": "CMS",
+    "Audience Measurement": "Analytics",
+    "Visitor Count Tracking": "Analytics",
+    "Tag Management": "Analytics",
+    "Analytics": "Analytics",
+    "Feedback Forms and Surveys": "CRM",
+    "Transactional Email": "CRM",
+    "CRM": "CRM",
+    "JavaScript Frameworks": "Framework",
+    "Web Frameworks": "Framework",
+}
+
+TECH_NAME_OVERRIDES = {
+    "Webflow": "CMS",
+    "WordPress": "CMS",
+    "Contentful": "CMS",
+    "Shopify": "CMS",
+    "Squarespace": "CMS",
+    "HubSpot": "CRM",
+    "Salesforce": "CRM",
+    "Google Analytics": "Analytics",
+    "Google Tag Manager": "Analytics",
+    "Hotjar": "Analytics",
+    "Segment": "Analytics",
 }
 
 
@@ -946,6 +1153,7 @@ def _build_analyst_observations(
                 "subdimensions": subdims,
                 "observations": ls.notes or "",
                 "screenshot_uri": ss_uri,
+                "lens_color": LENS_COLORS.get(ls.lens.value, "#076EFF"),
             })
 
         # Group into pages (up to 3 lenses per page)
@@ -956,13 +1164,12 @@ def _build_analyst_observations(
 
 
 def _build_roadmap(analysis: AnalysisRun) -> list[dict]:
-    """Build the prioritized roadmap from AI recommendations."""
+    """Build the prioritized roadmap from AI recommendations (flat list)."""
     if not analysis.ai_analysis or not analysis.ai_analysis.recommendations:
         return []
 
     recs = list(analysis.ai_analysis.recommendations)
 
-    # Sort by quadrant priority, then by impact (high first)
     def sort_key(r):
         q_idx = QUADRANT_PRIORITY.index(r.quadrant.value) if r.quadrant.value in QUADRANT_PRIORITY else 99
         impact_idx = 0 if r.impact.value == "high" else 1
@@ -986,6 +1193,71 @@ def _build_roadmap(analysis: AnalysisRun) -> list[dict]:
     return items
 
 
+def _build_roadmap_sections(analysis: AnalysisRun) -> list[dict]:
+    """Build roadmap grouped by quadrant with colored sections."""
+    if not analysis.ai_analysis or not analysis.ai_analysis.recommendations:
+        return []
+
+    # Group by quadrant
+    by_quadrant: dict[str, list] = {}
+    for rec in analysis.ai_analysis.recommendations:
+        q = rec.quadrant.value
+        by_quadrant.setdefault(q, []).append(rec)
+
+    sections = []
+    for q_key in QUADRANT_PRIORITY:
+        recs = by_quadrant.get(q_key, [])
+        if not recs:
+            continue
+        sections.append({
+            "label": QUADRANT_LABELS.get(q_key, q_key),
+            "color": ROADMAP_QUADRANT_COLORS.get(q_key, "#9BA8B7"),
+            "recs": [
+                {
+                    "title": r.title,
+                    "description": _truncate(r.description, 250),
+                    "lens": getattr(r, "related_gaps", [""])[0] if r.related_gaps else "",
+                }
+                for r in recs
+            ],
+        })
+
+    return sections
+
+
+def _build_tech_summary(analysis: AnalysisRun) -> list[tuple[str, str]]:
+    """Extract a concise tech stack summary: [(category_label, names_str), ...]."""
+    if not analysis.primary_site.tech_stack:
+        return []
+
+    by_cat: dict[str, list[str]] = {}
+    for tech in analysis.primary_site.tech_stack.technologies:
+        # Check name overrides first
+        override = TECH_NAME_OVERRIDES.get(tech.name)
+        if override:
+            by_cat.setdefault(override, [])
+            if tech.name not in by_cat[override]:
+                by_cat[override].append(tech.name)
+            continue
+
+        # Check category mapping
+        for cat in tech.categories:
+            mapped = TECH_CATEGORY_MAP.get(cat)
+            if mapped:
+                by_cat.setdefault(mapped, [])
+                if tech.name not in by_cat[mapped]:
+                    by_cat[mapped].append(tech.name)
+                break
+
+    result = []
+    for cat in ["CMS", "Analytics", "CRM", "Framework"]:
+        names = by_cat.get(cat, [])
+        if names:
+            result.append((cat, ", ".join(names[:5])))
+
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -996,6 +1268,7 @@ def render_pdf(
     output_path: str | Path,
     *,
     assets_dir: str | Path = "assets",
+    interpretations: dict[str, dict] | None = None,
 ) -> Path:
     """Render a complete PDF report from an AnalysisRun.
 
@@ -1003,6 +1276,7 @@ def render_pdf(
         analysis: The completed analysis run with all data.
         output_path: Where to save the PDF.
         assets_dir: Path to the assets directory for logos.
+        interpretations: Optional dict mapping site URLs to interpretation dicts.
 
     Returns:
         Path to the generated PDF.
@@ -1027,10 +1301,23 @@ def render_pdf(
         exec_summary = analysis.ai_analysis.executive_summary
         exec_paragraphs = [p.strip() for p in exec_summary.split("\n\n") if p.strip()]
 
-    # Scorecards
+    # Build interpretation lookup
+    interp_map = interpretations or {}
+
+    # Scorecards — include interpretation text if available
     scorecards = [_build_scorecard(primary, is_primary=True, index=0)]
     for idx, comp in enumerate(competitors):
         scorecards.append(_build_scorecard(comp, is_primary=False, index=idx + 1))
+
+    # Attach interpretation text to each scorecard
+    for sc in scorecards:
+        site_interp = interp_map.get(sc["url"], {})
+        overall_interp = site_interp.get("overall", {}).get("retina_score", {})
+        sc["interpretation_text"] = overall_interp.get("what", "")
+
+    # Competitive narrative from primary site interpretation
+    primary_interp = interp_map.get(primary.normalized_url, {})
+    competitive_narrative = primary_interp.get("competitive_narrative", "")
 
     # Comparison chart
     comparison_svg = None
@@ -1053,6 +1340,7 @@ def render_pdf(
     )
     quadrant_svg = ""
     roadmap_items = []
+    roadmap_sections = []
     if has_recs:
         rec_dicts = [
             {
@@ -1065,10 +1353,25 @@ def render_pdf(
         ]
         quadrant_svg = quadrant_matrix(rec_dicts)
         roadmap_items = _build_roadmap(analysis)
+        roadmap_sections = _build_roadmap_sections(analysis)
+
+    # Cover score ring
+    max_score = _get_max_score(primary)
+    cover_ring_svg = score_ring(primary.retina_score.total, max_score)
+
+    # Primary site screenshot for executive summary
+    primary_ss_uri = None
+    if primary.screenshots and primary.screenshots.viewport:
+        primary_ss_uri = _encode_image(primary.screenshots.viewport)
+    elif primary.screenshots and primary.screenshots.full_page:
+        primary_ss_uri = _encode_image(primary.screenshots.full_page)
+
+    # Tech stack summary
+    tech_summary = _build_tech_summary(analysis)
 
     # Lens descriptions for overview page
     lens_names = {
-        "performance_technical_health": "Performance & Technical Health",
+        "performance_technical_health": "Performance & Platform",
         "seo_ai_visibility": "SEO & AI Visibility",
         "brand_messaging": "Brand & Messaging",
         "experience_design": "Experience & Design",
@@ -1082,18 +1385,23 @@ def render_pdf(
         "primary_url": primary.normalized_url,
         "competitor_urls": [c.normalized_url for c in competitors],
         "analysis_date": analysis.created_at.strftime("%B %d, %Y"),
+        "cover_score_ring_svg": cover_ring_svg,
+        "screenshot_data_uri": primary_ss_uri,
+        "tech_summary": tech_summary,
         "executive_summary": exec_summary,
         "executive_summary_paragraphs": exec_paragraphs,
         "lens_descriptions": LENS_DESCRIPTIONS,
         "lens_names": lens_names,
         "scorecards": scorecards,
         "comparison_chart_svg": comparison_svg,
+        "competitive_narrative": competitive_narrative,
         "analyst_pages": analyst_pages,
         "has_recommendations": has_recs,
         "quadrant_svg": quadrant_svg,
         "quadrant_labels": QUADRANT_LABELS,
         "quadrant_colors": QUADRANT_COLORS,
         "roadmap_items": roadmap_items,
+        "roadmap_sections": roadmap_sections,
     }
 
     # Render HTML

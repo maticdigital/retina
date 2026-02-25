@@ -2,7 +2,84 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.components.styles import COLORS, hex_to_rgba
+
+
+# ---------------------------------------------------------------------------
+# Interpretation helpers — traverse and render three-part interpretations
+# ---------------------------------------------------------------------------
+
+def get_interpretation(interpretations: dict | None, dotted_path: str) -> dict[str, str] | None:
+    """Traverse a nested interpretation dict by dot-separated path.
+
+    Example: get_interpretation(interp, "performance.cwv.largest_contentful_paint_ms")
+    Returns {"what": "...", "why": "...", "where": "..."} or None.
+    """
+    if not interpretations:
+        return None
+    current = interpretations
+    for key in dotted_path.split("."):
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+        if current is None:
+            return None
+    if isinstance(current, dict) and "what" in current:
+        return current
+    return None
+
+
+def interpretation_html(interp: dict[str, str] | None) -> str:
+    """Render a three-part interpretation as a styled HTML block.
+
+    Expects a dict with 'what', 'why', and optional 'where' keys.
+    Returns empty string if interp is None.
+    """
+    if not interp:
+        return ""
+
+    what = interp.get("what", "")
+    why = interp.get("why", "")
+    where = interp.get("where", "")
+
+    parts = []
+    if what:
+        parts.append(
+            f"<div style='color:{COLORS['text']};font-size:0.82rem;line-height:1.5;'>{what}</div>"
+        )
+    if why:
+        parts.append(
+            f"<div style='color:{COLORS['text_muted']};font-size:0.78rem;line-height:1.5;"
+            f"margin-top:3px;'>{why}</div>"
+        )
+    if where:
+        parts.append(
+            f"<div style='color:{COLORS['accent']};font-size:0.78rem;line-height:1.5;"
+            f"margin-top:3px;font-style:italic;'>{where}</div>"
+        )
+
+    if not parts:
+        return ""
+
+    return (
+        f"<div style='margin-top:6px;padding:8px 10px;background:{hex_to_rgba(COLORS['accent'], 0.04)};"
+        f"border-left:2px solid {hex_to_rgba(COLORS['accent'], 0.3)};border-radius:4px;'>"
+        + "".join(parts)
+        + "</div>"
+    )
+
+
+def section_narrative_html(narrative: str | None) -> str:
+    """Render a section narrative as a styled intro paragraph."""
+    if not narrative:
+        return ""
+    return (
+        f"<div style='color:{COLORS['text_muted']};font-size:0.88rem;line-height:1.6;"
+        f"margin-bottom:1rem;padding:10px 14px;background:{hex_to_rgba(COLORS['accent'], 0.03)};"
+        f"border-radius:8px;'>{narrative}</div>"
+    )
 
 # ---------------------------------------------------------------------------
 # Core Web Vitals — what each metric is, thresholds, and why it matters
@@ -165,6 +242,7 @@ SEO_AUDIT_EXPLANATIONS: dict[str, dict[str, str]] = {
 def cwv_metric_html(
     key: str,
     value: float | None,
+    interpretation: dict[str, str] | None = None,
 ) -> str:
     """Render a CWV metric card with explanation."""
     info = CWV_EXPLANATIONS.get(key, {})
@@ -204,6 +282,12 @@ def cwv_metric_html(
         color = COLORS["warning"]
         label = "Needs Improvement"
 
+    # Use AI interpretation if available, else fall back to static text
+    if interpretation:
+        interp_block = interpretation_html(interpretation)
+    else:
+        interp_block = f"<div style='color:{COLORS['text_dim']};font-size:0.75rem;margin-top:6px;'>{why}</div>"
+
     return f"""
 <div style="background:{COLORS['bg_card']};border:1px solid {hex_to_rgba(color, 0.25)};
             border-radius:10px;padding:1rem;box-shadow:{COLORS['shadow']};">
@@ -211,7 +295,7 @@ def cwv_metric_html(
   <div style="color:{color};font-size:1.6rem;font-weight:700;">{display}
     <span style="font-size:0.7rem;font-weight:500;margin-left:4px;">{label}</span>
   </div>
-  <div style="color:{COLORS['text_dim']};font-size:0.75rem;margin-top:6px;">{why}</div>
+  {interp_block}
 </div>"""
 
 
@@ -223,6 +307,7 @@ def audit_card_html(
     display_value: str | None,
     weight: float,
     category: str,
+    interpretation: dict[str, str] | None = None,
 ) -> str:
     """Render a single audit finding as a rich card."""
     if score is None:
@@ -247,6 +332,12 @@ def audit_card_html(
     if display_value:
         value_html = f"<span style='color:{COLORS['text_dim']};font-size:0.8rem;margin-left:8px;'>{display_value}</span>"
 
+    # Use AI interpretation if available, else fall back to static explanation
+    if interpretation:
+        detail_html = interpretation_html(interpretation)
+    else:
+        detail_html = f"<div style='color:{COLORS['text_muted']};font-size:0.78rem;margin-top:4px;'>{explanation}</div>"
+
     return f"""
 <div style="padding:10px 14px;margin:4px 0;background:{hex_to_rgba(color, 0.05)};
             border-left:3px solid {color};border-radius:6px;">
@@ -254,11 +345,11 @@ def audit_card_html(
     <span style="color:{color};font-weight:600;font-size:0.85rem;">{icon} {display_name}{value_html}</span>
     <span style="color:{COLORS['text_dim']};font-size:0.72rem;">Weight: {weight:.0f}</span>
   </div>
-  <div style="color:{COLORS['text_muted']};font-size:0.78rem;margin-top:4px;">{explanation}</div>
+  {detail_html}
 </div>"""
 
 
-def tech_card_html(name: str, description: str | None, category: str) -> str:
+def tech_card_html(name: str, description: str | None, category: str, interpretation: dict[str, str] | None = None) -> str:
     """Render a technology finding as a labeled card."""
     cat_lower = category.lower() if category else ""
     cat_explanation = TECH_EXPLANATIONS.get(cat_lower, "")
@@ -267,13 +358,19 @@ def tech_card_html(name: str, description: str | None, category: str) -> str:
     if len(desc_text) > 120:
         desc_text = desc_text[:117] + "..."
 
+    # Use AI interpretation if available
+    if interpretation:
+        detail_html = interpretation_html(interpretation)
+    else:
+        detail_html = f"<div style='color:{COLORS['text_dim']};font-size:0.75rem;line-height:1.4;'>{desc_text}</div>"
+
     return f"""
 <div style="background:{COLORS['bg_card']};border:1px solid {COLORS['border']};
             border-radius:8px;padding:10px 14px;box-shadow:{COLORS['shadow']};">
   <div style="font-weight:600;color:{COLORS['text']};font-size:0.85rem;">{name}</div>
   <div style="color:{COLORS['accent']};font-size:0.7rem;text-transform:uppercase;
               letter-spacing:0.04em;margin:2px 0 4px;">{category}</div>
-  <div style="color:{COLORS['text_dim']};font-size:0.75rem;line-height:1.4;">{desc_text}</div>
+  {detail_html}
 </div>"""
 
 

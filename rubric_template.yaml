@@ -19,10 +19,10 @@ sites:
     # BRAND & MESSAGING (20 points total)
     brand_messaging:
       scores:
-        brand_clarity_consistency: 0           # /5 - Logo, colors, typography consistent across pages
-        value_proposition_strength: 0          # /5 - Clear, compelling, differentiated value prop
-        content_quality_tone: 0                # /5 - Professional, error-free, on-brand writing
-        visual_identity_differentiation: 0     # /5 - Stands out from competitors visually
+        brand_visual_language: 0          # /5 - Logo, colors, typography consistent across pages
+        brand_voice_messaging: 0          # /5 - Professional, audience-appropriate tone of voice
+        value_proposition: 0              # /5 - Clear, compelling, differentiated value prop
+        brand_differentiation: 0          # /5 - Stands out from competitors visually and verbally
       observations: |
         Notes on brand presence, messaging clarity, tone of voice...
       screenshots:
@@ -31,11 +31,10 @@ sites:
     # EXPERIENCE & DESIGN (20 points total)
     experience_design:
       scores:
-        visual_design_quality: 0               # /4 - Aesthetic quality, whitespace, visual hierarchy
-        navigation_information_architecture: 0 # /4 - Logical nav, findability, menu structure
-        interaction_design_micro_interactions: 0  # /4 - Hover states, transitions, feedback loops
-        responsiveness_cross_device: 0         # /4 - Mobile/tablet/desktop consistency
-        content_layout_readability: 0          # /4 - Scannable, good line length, contrast
+        interface_design: 0               # /5 - Aesthetic quality, whitespace, visual hierarchy
+        content_taxonomy: 0               # /5 - Content organized with clear categories and hierarchy
+        navigation_architecture: 0        # /5 - Logical nav, findability, menu structure
+        responsiveness: 0                 # /5 - Mobile/tablet/desktop consistency
       observations: |
         Notes on design quality, UX patterns, responsive behavior...
       screenshots:
@@ -44,11 +43,10 @@ sites:
     # CONVERSION & STRATEGY (20 points total)
     conversion_strategy:
       scores:
-        cta_effectiveness: 0                   # /4 - Visible, compelling, clear action CTAs
-        user_journey_funnel_design: 0          # /4 - Logical progression, minimal friction
-        trust_signals_social_proof: 0          # /4 - Testimonials, logos, reviews, badges
-        lead_capture_form_design: 0            # /4 - Form length, field labels, progressive disclosure
-        strategic_positioning_vs_competitors: 0  # /4 - Unique angles, competitive awareness
+        call_to_action_logic: 0           # /5 - Visible, compelling, clear action CTAs
+        lead_capture_form_design: 0       # /5 - Form length, field labels, progressive disclosure
+        trust_signals: 0                  # /5 - Testimonials, logos, reviews, badges
+        funnel_design: 0                  # /5 - Logical progression, minimal friction
       observations: |
         Notes on conversion paths, CTA placement, trust elements...
       screenshots:
@@ -59,27 +57,25 @@ sites:
   #   analyst: "Your Name"
   #   brand_messaging:
   #     scores:
-  #       brand_clarity_consistency: 0
-  #       value_proposition_strength: 0
-  #       content_quality_tone: 0
-  #       visual_identity_differentiation: 0
+  #       brand_visual_language: 0
+  #       brand_voice_messaging: 0
+  #       value_proposition: 0
+  #       brand_differentiation: 0
   #     observations: |
   #       ...
   #   experience_design:
   #     scores:
-  #       visual_design_quality: 0
-  #       navigation_information_architecture: 0
-  #       interaction_design_micro_interactions: 0
-  #       responsiveness_cross_device: 0
-  #       content_layout_readability: 0
+  #       interface_design: 0
+  #       content_taxonomy: 0
+  #       navigation_architecture: 0
+  #       responsiveness: 0
   #     observations: |
   #       ...
   #   conversion_strategy:
   #     scores:
-  #       cta_effectiveness: 0
-  #       user_journey_funnel_design: 0
-  #       trust_signals_social_proof: 0
+  #       call_to_action_logic: 0
   #       lead_capture_form_design: 0
-  #       strategic_positioning_vs_competitors: 0
+  #       trust_signals: 0
+  #       funnel_design: 0
   #     observations: |
   #       ...

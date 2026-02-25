@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from app.services.supabase_client import get_supabase
 
@@ -124,6 +127,31 @@ def get_project_data(project_id: str) -> list[dict[str, Any]]:
     return resp.data or []
 
 
+def update_interpretations(
+    project_id: str,
+    site_url: str,
+    interpretations: dict,
+) -> None:
+    """Store AI-generated interpretations for a site in project_data."""
+    sb = get_supabase()
+    existing = (
+        sb.table("project_data")
+        .select("id")
+        .eq("project_id", project_id)
+        .eq("site_url", site_url)
+        .execute()
+    )
+    if existing.data:
+        sb.table("project_data").update(
+            {"interpretations": interpretations}
+        ).eq("id", existing.data[0]["id"]).execute()
+    else:
+        logger.warning(
+            "No project_data row found for %s / %s — skipping interpretation storage",
+            project_id, site_url,
+        )
+
+
 # --- Reports ---
 
 
@@ -243,3 +271,101 @@ def get_analyst_scores(project_id: str) -> list[dict[str, Any]]:
         .execute()
     )
     return resp.data or []
+
+
+# --- Score Recalculation ---
+
+
+AUTOMATED_LENS_KEYS = ["performance_technical_health", "seo_ai_visibility"]
+ANALYST_LENS_KEYS = ["brand_messaging", "experience_design", "conversion_strategy"]
+
+
+def _sum_sub_scores(sub_scores: dict) -> float:
+    """Sum sub-dimension scores from analyst_scores.sub_scores JSON."""
+    total = 0.0
+    for v in sub_scores.values():
+        if isinstance(v, (int, float)):
+            total += float(v)
+        elif isinstance(v, dict) and "score" in v:
+            total += float(v["score"])
+    return total
+
+
+def recalculate_scores(project_id: str) -> dict[str, float]:
+    """Recalculate all lens scores and the composite Retina Score.
+
+    Fetches current data from Supabase, computes correct totals, and
+    updates the latest report row with the new composite score.
+
+    Returns:
+        Dict with keys: performance, seo, brand, experience, conversion,
+        retina_score — all floats.
+    """
+    sb = get_supabase()
+
+    # 1. Automated scores from project_data
+    pd_resp = (
+        sb.table("project_data")
+        .select("automated_scores")
+        .eq("project_id", project_id)
+        .execute()
+    )
+    auto_scores = {}
+    if pd_resp.data:
+        auto_scores = pd_resp.data[0].get("automated_scores") or {}
+
+    perf = 0.0
+    seo = 0.0
+    if isinstance(auto_scores.get("performance_technical_health"), dict):
+        perf = float(auto_scores["performance_technical_health"].get("score") or 0)
+    if isinstance(auto_scores.get("seo_ai_visibility"), dict):
+        seo = float(auto_scores["seo_ai_visibility"].get("score") or 0)
+
+    # 2. Analyst scores from analyst_scores table
+    as_resp = (
+        sb.table("analyst_scores")
+        .select("lens_name, sub_scores")
+        .eq("project_id", project_id)
+        .execute()
+    )
+    analyst_map: dict[str, float] = {}
+    for row in as_resp.data or []:
+        lens = row.get("lens_name", "")
+        sub = row.get("sub_scores") or {}
+        analyst_map[lens] = round(_sum_sub_scores(sub), 2)
+
+    brand = analyst_map.get("brand_messaging", 0.0)
+    experience = analyst_map.get("experience_design", 0.0)
+    conversion = analyst_map.get("conversion_strategy", 0.0)
+
+    # 3. Composite score
+    retina_score = round(perf + seo + brand + experience + conversion, 2)
+
+    # 4. Update latest report row
+    rpt_resp = (
+        sb.table("reports")
+        .select("id")
+        .eq("project_id", project_id)
+        .order("generated_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if rpt_resp.data:
+        sb.table("reports").update(
+            {"retina_score": retina_score}
+        ).eq("id", rpt_resp.data[0]["id"]).execute()
+        logger.info(
+            "Recalculated scores for %s: perf=%.1f seo=%.1f brand=%.1f exp=%.1f conv=%.1f → retina=%.2f",
+            project_id, perf, seo, brand, experience, conversion, retina_score,
+        )
+    else:
+        logger.warning("No report row found for %s — cannot store recalculated score", project_id)
+
+    return {
+        "performance": perf,
+        "seo": seo,
+        "brand": brand,
+        "experience": experience,
+        "conversion": conversion,
+        "retina_score": retina_score,
+    }

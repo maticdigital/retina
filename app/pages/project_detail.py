@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from app.components.styles import status_badge
+from app.components.styles import COLORS, status_badge
 from app.services.pipeline import run_analysis_sync
 from app.services.projects import (
     get_analyst_scores,
@@ -31,40 +31,50 @@ def render() -> None:
         return
 
     # --- Header ---
-    c1, c2, c3 = st.columns([0.5, 4, 2])
-    with c1:
-        if st.button("←"):
-            # Clear analyst session state on exit
+    hdr_left, hdr_right = st.columns([4, 2])
+
+    with hdr_left:
+        # Back link
+        if st.button("← Back to Dashboard", key="back_dash"):
             _clear_analyst_state()
             st.session_state["page"] = "dashboard"
             st.rerun()
-    with c2:
+
+        # Project name
         st.markdown(
-            f"### {project['name']} {status_badge(project['status'])}",
+            f"<h1 style='color:{COLORS['text']};font-size:1.6rem;margin:0.25rem 0 4px 0;"
+            f"font-weight:700;'>{project['name']}</h1>",
             unsafe_allow_html=True,
         )
-    with c3:
+
+        # Primary URL + competitors
+        competitors = project.get("competitor_urls", [])
+        comp_text = ""
+        if competitors:
+            comp_text = (
+                f"<span style='margin-left:12px;color:{COLORS['text_dim']};font-size:0.82rem;'>"
+                f"+ {len(competitors)} competitor{'s' if len(competitors) > 1 else ''}</span>"
+            )
+        st.markdown(
+            f"<p style='color:{COLORS['text_muted']};font-size:0.88rem;margin:0;'>"
+            f"{project['primary_url']}{comp_text}</p>",
+            unsafe_allow_html=True,
+        )
+
+    with hdr_right:
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        # Status badge
+        st.markdown(
+            f"<div style='text-align:right;margin-bottom:12px;'>{status_badge(project['status'])}</div>",
+            unsafe_allow_html=True,
+        )
+        # Run / Re-run button
         if project["status"] in ("draft", "complete"):
             label = "Run Analysis" if project["status"] == "draft" else "Re-run Analysis"
             if st.button(label, type="primary", use_container_width=True):
                 _run_analysis(project)
 
-    # URL info
-    from app.components.styles import COLORS
-
-    st.markdown(
-        f"<p style='color:{COLORS['text_muted']};margin:0;'>Primary: {project['primary_url']}</p>",
-        unsafe_allow_html=True,
-    )
-    competitors = project.get("competitor_urls", [])
-    if competitors:
-        st.markdown(
-            f"<p style='color:{COLORS['text_muted']};margin:0 0 0.5rem 0;'>"
-            f"Competitors: {', '.join(competitors)}</p>",
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("---")
+    st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
 
     # --- Load all data once ---
     site_data = _load_cached(f"site_data_{project_id}", lambda: get_project_data(project_id))

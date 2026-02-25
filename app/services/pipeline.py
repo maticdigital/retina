@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 from retina.analysis.analyst_seeder import AnalystLensSeeder
 from retina.analysis.claude import ClaudeAnalyzer
+from retina.analysis.interpreter import SiteInterpreter
 from retina.clients.builtwith import BuiltWithClient
 from retina.clients.pagespeed import PageSpeedClient
 from retina.clients.screenshot import ScreenshotClient
@@ -26,7 +27,18 @@ from retina.scoring.performance import score_performance_lens
 from retina.scoring.seo import score_seo_lens
 from retina.utils.url import normalize_url
 
-from app.services.projects import save_project_data, save_report, update_project_status, upsert_analyst_score
+from app.services.projects import (
+    save_project_data,
+    save_report,
+    update_interpretations,
+    update_project_status,
+    upsert_analyst_score,
+)
+from app.services.pipeline_status import (
+    complete_run,
+    fail_run,
+    update_step,
+)
 from app.services.storage import upload_report_pdf, upload_screenshot
 
 logger = logging.getLogger(__name__)
@@ -45,13 +57,11 @@ async def collect_site_data(
     domain = urlparse(normalized).netloc
     logger.info("Collecting data for %s", normalized)
 
+    # Run PageSpeed + BuiltWith in parallel (HTTP-based, no browser needed)
     tasks: list = [
         psi_client.analyze_both_strategies(normalized),
         bw_client.lookup(normalized),
     ]
-    if screenshot_client:
-        tasks.append(screenshot_client.capture(normalized, domain))
-
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     psi_results = results[0]
@@ -64,13 +74,16 @@ async def collect_site_data(
         logger.error("BuiltWith failed for %s: %s", normalized, bw_raw)
         bw_raw = {}
 
+    # Best-effort screenshot capture — fail silently so analysts can upload manually
     screenshot_data: ScreenshotData | None = None
-    if screenshot_client and len(results) > 2:
-        ss_result = results[2]
-        if isinstance(ss_result, Exception):
-            logger.warning("Screenshots failed for %s: %s", normalized, ss_result)
-        elif isinstance(ss_result, ScreenshotData):
-            screenshot_data = ss_result
+    if screenshot_client:
+        try:
+            screenshot_data = await screenshot_client.capture(normalized, domain)
+            if screenshot_data and not screenshot_data.full_page and not screenshot_data.viewport:
+                screenshot_data = None
+        except Exception:
+            logger.debug("Auto-screenshot failed for %s (analyst can upload manually)", normalized)
+            screenshot_data = None
 
     perf_mobile = normalize_pagespeed(psi_results.get("mobile", {}), DeviceStrategy.MOBILE)
     perf_desktop = normalize_pagespeed(psi_results.get("desktop", {}), DeviceStrategy.DESKTOP)
@@ -117,23 +130,26 @@ async def run_analysis(
         logger.info(msg)
 
     update_project_status(project_id, "in_progress")
+    update_step(project_id, "lighthouse", 5)
     _progress("Initializing analysis clients...")
 
     settings = Settings()
     psi = PageSpeedClient(settings)
     bw = BuiltWithClient(settings)
-    ss = ScreenshotClient(settings)
+    ss = ScreenshotClient(settings, use_subprocess=True)
 
     try:
         all_urls = [primary_url] + competitor_urls
         _progress(f"Analyzing {len(all_urls)} site(s)...")
 
-        # Collect data for all sites
+        # Collect data for all sites (lighthouse + builtwith + screenshots together)
         reports: list[SiteReport] = []
         for i, url in enumerate(all_urls):
             _progress(f"Collecting data for {url} ({i + 1}/{len(all_urls)})...")
             report = await collect_site_data(url, psi, bw, ss)
             reports.append(report)
+
+        update_step(project_id, "screenshots", 30)
 
         # Upload screenshots to Supabase Storage and store data
         for report in reports:
@@ -142,11 +158,17 @@ async def run_analysis(
             screenshot_urls = {}
             if report.screenshots:
                 if report.screenshots.full_page and os.path.exists(report.screenshots.full_page):
-                    url = upload_screenshot(report.screenshots.full_page, project_id)
-                    screenshot_urls["full_page"] = url
+                    try:
+                        url = upload_screenshot(report.screenshots.full_page, project_id)
+                        screenshot_urls["full_page"] = url
+                    except Exception:
+                        pass  # Silent — analyst can upload manually
                 if report.screenshots.viewport and os.path.exists(report.screenshots.viewport):
-                    url = upload_screenshot(report.screenshots.viewport, project_id)
-                    screenshot_urls["viewport"] = url
+                    try:
+                        url = upload_screenshot(report.screenshots.viewport, project_id)
+                        screenshot_urls["viewport"] = url
+                    except Exception:
+                        pass  # Silent — analyst can upload manually
 
             # Serialize scores for storage
             automated_scores = {}
@@ -178,7 +200,71 @@ async def run_analysis(
                 automated_scores=automated_scores,
             )
 
+        update_step(project_id, "scoring", 50)
+
+        # Generate strategic interpretations for each site
+        update_step(project_id, "ai_interpretation", 60)
+        site_interpretations: dict[str, dict] = {}
+        if settings.anthropic_api_key:
+            _progress("Generating strategic interpretations...")
+            try:
+                interpreter = SiteInterpreter(settings)
+                for i, report in enumerate(reports):
+                    _progress(f"Interpreting {report.normalized_url}...")
+
+                    # Build lighthouse + builtwith data for this report
+                    interp_lh = {}
+                    for perf in report.performance:
+                        interp_lh[perf.strategy.value] = {
+                            "lighthouse_scores": perf.lighthouse_scores.model_dump(),
+                            "core_web_vitals": perf.core_web_vitals.model_dump(),
+                            "audits": [a.model_dump() for a in perf.audits],
+                        }
+                    interp_bw = report.tech_stack.model_dump() if report.tech_stack else {}
+                    interp_auto = {}
+                    for ls in report.retina_score.lens_scores:
+                        interp_auto[ls.lens.value] = {
+                            "score": ls.score,
+                            "breakdown": ls.breakdown,
+                        }
+
+                    # Build competitor context from other reports
+                    comp_context = []
+                    for j, other in enumerate(reports):
+                        if j == i:
+                            continue
+                        other_lh = {}
+                        for perf in other.performance:
+                            other_lh[perf.strategy.value] = {
+                                "lighthouse_scores": perf.lighthouse_scores.model_dump(),
+                                "core_web_vitals": perf.core_web_vitals.model_dump(),
+                            }
+                        other_auto = {}
+                        for ls in other.retina_score.lens_scores:
+                            other_auto[ls.lens.value] = {"score": ls.score}
+                        comp_context.append({
+                            "site_url": other.normalized_url,
+                            "lighthouse_data": other_lh,
+                            "automated_scores": other_auto,
+                        })
+
+                    interps = interpreter.interpret(
+                        site_url=report.normalized_url,
+                        lighthouse_data=interp_lh,
+                        builtwith_data=interp_bw,
+                        automated_scores=interp_auto,
+                        competitor_data=comp_context or None,
+                    )
+                    if interps:
+                        site_interpretations[report.normalized_url] = interps
+                        update_interpretations(project_id, report.normalized_url, interps)
+                _progress("Strategic interpretations complete.")
+            except Exception as e:
+                logger.exception("Interpretation generation failed")
+                _progress(f"Interpretation generation failed: {e}")
+
         # Seed analyst lens scores with AI for each site
+        update_step(project_id, "analyst_seeding", 80)
         if settings.anthropic_api_key:
             _progress("Generating AI-powered analyst evaluations...")
             try:
@@ -248,7 +334,7 @@ async def run_analysis(
         try:
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
                 tmp_path = tmp.name
-            render_pdf(analysis, tmp_path)
+            render_pdf(analysis, tmp_path, interpretations=site_interpretations)
             pdf_url = upload_report_pdf(tmp_path, project_id)
             os.unlink(tmp_path)
             _progress("PDF report generated and uploaded.")
@@ -267,7 +353,7 @@ async def run_analysis(
                     "impact": rec.impact.value,
                 })
 
-        # Save report to Supabase
+        # Save report to Supabase (initial score from automated lenses only)
         total_score = reports[0].retina_score.total
         save_report(
             project_id=project_id,
@@ -277,7 +363,24 @@ async def run_analysis(
             pdf_path=pdf_url,
         )
 
+        # Recalculate with all 5 lenses (analyst scores were seeded above)
+        from app.services.projects import recalculate_scores
+        final_scores = recalculate_scores(project_id)
+        total_score = final_scores["retina_score"]
+
+        # Generate AI recommendations if quadrant_data is empty
+        if not quadrant_data and settings.anthropic_api_key:
+            _progress("Generating AI recommendations...")
+            try:
+                from app.services.recommendations import generate_recommendations
+                quadrant_data = generate_recommendations(project_id)
+                _progress("AI recommendations generated.")
+            except Exception as e:
+                logger.exception("Recommendation generation failed")
+                _progress(f"Recommendation generation failed: {e}")
+
         update_project_status(project_id, "complete")
+        complete_run(project_id)
         _progress("Analysis complete!")
 
         return {
@@ -286,6 +389,12 @@ async def run_analysis(
             "pdf_url": pdf_url,
             "ai_analysis": bool(ai_analysis_data),
         }
+
+    except Exception as e:
+        logger.exception("Pipeline failed for project %s", project_id)
+        fail_run(project_id, str(e))
+        update_project_status(project_id, "draft")
+        raise
 
     finally:
         await psi.close()

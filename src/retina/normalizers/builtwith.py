@@ -20,7 +20,8 @@ def normalize_builtwith(raw: dict) -> TechStackData:
     if not results:
         return TechStackData()
 
-    result = results[0].get("Result", {})
+    top_result = results[0]
+    result = top_result.get("Result", {})
     paths = result.get("Paths", [])
 
     technologies: list[Technology] = []
@@ -48,14 +49,14 @@ def normalize_builtwith(raw: dict) -> TechStackData:
                 )
             )
 
-    # Extract meta information
-    meta_raw = result.get("Meta", {})
+    # Extract meta information — lives at top_result level, not inner Result
+    meta_raw = top_result.get("Meta", {})
     meta = {}
     if isinstance(meta_raw, dict):
-        meta = {k: str(v) for k, v in meta_raw.items()}
+        meta = {k: str(v) for k, v in meta_raw.items() if not isinstance(v, (list, dict))}
 
-    # Extract social profiles
-    social = result.get("SocialProfiles", [])
+    # Extract social profiles — nested inside Meta.Social
+    social = meta_raw.get("Social", []) if isinstance(meta_raw, dict) else []
     if not isinstance(social, list):
         social = []
 

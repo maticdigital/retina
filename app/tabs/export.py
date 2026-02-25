@@ -7,10 +7,11 @@ from datetime import datetime
 
 import streamlit as st
 
+from app.components.explanations import get_interpretation, interpretation_html
 from app.components.styles import COLORS
 
 LENS_NAMES = {
-    "performance_technical_health": "Performance & Technical Health",
+    "performance_technical_health": "Performance & Platform",
     "seo_ai_visibility": "SEO & AI Visibility",
     "brand_messaging": "Brand & Messaging",
     "experience_design": "Experience & Design",
@@ -26,13 +27,44 @@ def render(
 ) -> None:
     """Render the Export tab."""
 
-    # --- Completeness Preview ---
-    st.markdown("##### Report Completeness")
+    # --- Report Summary ---
+    st.markdown(
+        f"<p style='color:{COLORS['text']};font-size:1.1rem;font-weight:600;"
+        f"margin-bottom:0.5rem;'>Report Summary</p>",
+        unsafe_allow_html=True,
+    )
+
+    # Project info card
+    competitors = project.get("competitor_urls", [])
+    comp_text = f"{len(competitors)} competitor{'s' if len(competitors) != 1 else ''}" if competitors else "No competitors"
+    user = st.session_state.get("user", {})
+    analyst_name = user.get("name", "Unknown")
+
+    st.markdown(
+        f"<div class='retina-card'>"
+        f"<div style='display:flex;justify-content:space-between;margin-bottom:8px;'>"
+        f"<span style='color:{COLORS['text']};font-weight:600;'>{project.get('name', 'Untitled')}</span>"
+        f"<span style='color:{COLORS['text_muted']};font-size:0.82rem;'>{comp_text}</span></div>"
+        f"<div style='color:{COLORS['text_muted']};font-size:0.85rem;margin-bottom:4px;'>"
+        f"{project.get('primary_url', '')}</div>"
+        f"<div style='color:{COLORS['text_dim']};font-size:0.78rem;'>Analyst: {analyst_name}</div>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
+
+    # --- Completeness Checklist ---
+    st.markdown(
+        f"<p style='color:{COLORS['text']};font-size:1rem;font-weight:600;"
+        f"margin-bottom:0.5rem;'>Report Completeness</p>",
+        unsafe_allow_html=True,
+    )
 
     primary_url = project.get("primary_url", "")
     auto_scores = {}
+    primary_sd = None
     if site_data:
-        primary_sd = None
         for sd in site_data:
             if sd.get("site_url") == primary_url:
                 primary_sd = sd
@@ -60,27 +92,41 @@ def render(
 
         is_complete = score is not None and score > 0
         if is_complete:
-            icon = f'<span class="checklist-done">✓</span>'
-            score_str = f'<span style="color:{COLORS["success"]}">{score:.1f}/20</span>'
+            icon = f'<span style="color:{COLORS["success"]};font-weight:700;">✓</span>'
+            score_str = f'<span style="color:{COLORS["success"]};font-weight:600;">{score:.1f}/20</span>'
             total_score += score
         else:
-            icon = f'<span class="checklist-pending">○</span>'
-            score_str = f'<span style="color:{COLORS["text_dim"]}">Not scored</span>'
+            icon = f'<span style="color:{COLORS["text_dim"]};">○</span>'
+            score_str = f'<span style="color:{COLORS["text_dim"]};">Not scored</span>'
 
         total_max += 20.0
         completeness_html += f"""
-<div class="checklist-item">
+<div style="display:flex;align-items:center;gap:10px;padding:10px 0;
+            border-bottom:1px solid {COLORS['border']};">
   {icon}
-  <span style="color:{COLORS['text']};flex:1;">{label}</span>
+  <span style="color:{COLORS['text']};flex:1;font-size:0.88rem;">{label}</span>
   {score_str}
 </div>"""
 
+    # Show interpretation of overall score if available
+    interp = primary_sd.get("interpretations") or {} if primary_sd else {}
+    score_interp = get_interpretation(interp, "overall.retina_score")
+    score_interp_html = ""
+    if score_interp and score_interp.get("what"):
+        score_interp_html = (
+            f"<div style='color:{COLORS['text_muted']};font-size:0.82rem;margin-top:6px;'>"
+            f"{score_interp['what']}</div>"
+        )
+
     # Total row
     completeness_html += f"""
-<div style="display:flex;justify-content:space-between;padding:0.75rem 0;margin-top:0.5rem;
+<div style="display:flex;flex-direction:column;padding:0.75rem 0;margin-top:0.5rem;
             border-top:2px solid {COLORS['border']};">
-  <span style="color:{COLORS['text']};font-weight:700;font-size:1.1rem;">Total Retina Score</span>
-  <span style="color:{COLORS['accent']};font-weight:700;font-size:1.1rem;">{total_score:.1f}/{total_max:.0f}</span>
+  <div style="display:flex;justify-content:space-between;">
+    <span style="color:{COLORS['text']};font-weight:700;font-size:1.1rem;">Total Retina Score</span>
+    <span style="color:{COLORS['accent']};font-weight:700;font-size:1.1rem;">{total_score:.1f}/{total_max:.0f}</span>
+  </div>
+  {score_interp_html}
 </div>"""
 
     st.markdown(
@@ -88,15 +134,16 @@ def render(
         unsafe_allow_html=True,
     )
 
-    st.markdown("---")
+    st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
 
     # --- Export Actions ---
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("##### Generate PDF Report")
         st.markdown(
-            f"<p style='color:{COLORS['text_muted']};font-size:0.85rem;'>"
+            f"<p style='color:{COLORS['text']};font-size:1rem;font-weight:600;"
+            f"margin-bottom:0.25rem;'>Generate PDF Report</p>"
+            f"<p style='color:{COLORS['text_muted']};font-size:0.85rem;margin-bottom:0.75rem;'>"
             "Generate a full PDF report with all scores, charts, and analysis.</p>",
             unsafe_allow_html=True,
         )
@@ -111,9 +158,10 @@ def render(
             )
 
     with col2:
-        st.markdown("##### Download JSON Data")
         st.markdown(
-            f"<p style='color:{COLORS['text_muted']};font-size:0.85rem;'>"
+            f"<p style='color:{COLORS['text']};font-size:1rem;font-weight:600;"
+            f"margin-bottom:0.25rem;'>Download JSON Data</p>"
+            f"<p style='color:{COLORS['text_muted']};font-size:0.85rem;margin-bottom:0.75rem;'>"
             "Download all project data as structured JSON.</p>",
             unsafe_allow_html=True,
         )
@@ -139,10 +187,14 @@ def render(
             use_container_width=True,
         )
 
-    st.markdown("---")
+    st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
 
     # --- Previous Reports ---
-    st.markdown("##### Previous Reports")
+    st.markdown(
+        f"<p style='color:{COLORS['text']};font-size:1rem;font-weight:600;"
+        f"margin-bottom:0.5rem;'>Previous Reports</p>",
+        unsafe_allow_html=True,
+    )
     if not reports:
         st.markdown(
             f"<p style='color:{COLORS['text_dim']};font-size:0.85rem;'>No reports generated yet.</p>",
@@ -160,35 +212,58 @@ def render(
         score = report.get("retina_score", 0)
         pdf_path = report.get("pdf_path")
 
-        rc1, rc2, rc3 = st.columns([3, 1, 1])
-        with rc1:
-            st.markdown(f"**{date_str}**")
-        with rc2:
-            st.markdown(f"Score: **{score:.1f}**")
-        with rc3:
-            if pdf_path:
-                st.markdown(f"[Download PDF]({pdf_path})")
+        st.markdown(
+            f"<div class='retina-card' style='display:flex;justify-content:space-between;align-items:center;'>"
+            f"<div>"
+            f"<div style='color:{COLORS['text']};font-weight:600;font-size:0.88rem;'>{date_str}</div>"
+            f"<div style='color:{COLORS['text_muted']};font-size:0.82rem;'>Score: {score:.1f}/100</div>"
+            f"</div>"
+            + (f"<a href='{pdf_path}' style='color:{COLORS['accent']};font-size:0.85rem;"
+               f"text-decoration:none;font-weight:600;'>Download PDF →</a>" if pdf_path else "")
+            + f"</div>",
+            unsafe_allow_html=True,
+        )
 
         ai = report.get("ai_analysis", {})
         if ai and ai.get("executive_summary"):
             with st.expander("AI Analysis Summary"):
                 st.markdown(ai["executive_summary"][:500])
 
-        st.markdown("---")
-
 
 def _generate_pdf(project: dict) -> None:
-    """Trigger PDF report generation."""
+    """Trigger PDF report generation with step-by-step progress."""
     from app.services.pipeline import run_analysis_sync
 
     project_id = project["id"]
     primary_url = project["primary_url"]
     competitors = project.get("competitor_urls", [])
 
-    progress_bar = st.progress(0, text="Generating report...")
+    # Step-by-step progress display
+    steps_container = st.empty()
+    steps_done: list[str] = []
+    current_step = ""
+
+    def _render_steps():
+        html = "<div class='retina-card'>"
+        for s in steps_done:
+            html += (
+                f"<div style='padding:6px 0;color:{COLORS['success']};font-size:0.85rem;'>"
+                f"✓ {s}</div>"
+            )
+        if current_step:
+            html += (
+                f"<div style='padding:6px 0;color:{COLORS['accent']};font-size:0.85rem;'>"
+                f"⟳ {current_step}</div>"
+            )
+        html += "</div>"
+        steps_container.markdown(html, unsafe_allow_html=True)
 
     def progress_callback(msg: str) -> None:
-        progress_bar.progress(0.5, text=msg)
+        nonlocal current_step
+        if current_step:
+            steps_done.append(current_step)
+        current_step = msg
+        _render_steps()
 
     try:
         result = run_analysis_sync(
@@ -197,11 +272,24 @@ def _generate_pdf(project: dict) -> None:
             competitor_urls=competitors,
             progress_callback=progress_callback,
         )
-        progress_bar.progress(1.0, text="Complete!")
+        if current_step:
+            steps_done.append(current_step)
+        current_step = ""
+        _render_steps()
+
         st.success(f"Report generated! Score: {result['retina_score']:.1f}")
         if result.get("pdf_url"):
             st.markdown(f"[Download PDF]({result['pdf_url']})")
         st.rerun()
+    except ImportError as e:
+        steps_container.empty()
+        if "weasyprint" in str(e).lower():
+            st.error(
+                "PDF generation requires WeasyPrint. Install it with: "
+                "`pip install weasyprint`"
+            )
+        else:
+            st.error(f"Report generation failed: {e}")
     except Exception as e:
-        progress_bar.empty()
+        steps_container.empty()
         st.error(f"Report generation failed: {e}")
