@@ -1,0 +1,40 @@
+{
+  "version": 2,
+  "projects": [
+    {
+      "name": "retina-api",
+      "source": ".",
+      "builds": [
+        {
+          "src": "api/main.py",
+          "use": "@vercel/python"
+        }
+      ],
+      "routes": [
+        {
+          "src": "/api/(.*)",
+          "dest": "api/main.py"
+        }
+      ]
+    },
+    {
+      "name": "retina-web", 
+      "source": "web",
+      "builds": [
+        {
+          "src": "package.json",
+          "use": "@vercel/static-build"
+        }
+      ],
+      "routes": [
+        {
+          "handle": "filesystem"
+        },
+        {
+          "src": "/(.*)",
+          "dest": "/index.html"
+        }
+      ]
+    }
+  ]
+}
