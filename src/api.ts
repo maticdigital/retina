@@ -2,7 +2,7 @@
  * Thin API client that talks to the FastAPI backend at :8000.
  */
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const BASE = import.meta.env.VITE_API_URL || 'https://retina-pi.vercel.app';
 
 /** Get the stored access token. */
 export function getToken(): string | null {
