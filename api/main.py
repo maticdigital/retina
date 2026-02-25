@@ -50,19 +50,22 @@ def health():
 @app.get("/debug/screenshot")
 async def debug_screenshot():
     """Debug endpoint: test screenshot capture from within uvicorn."""
-    import sys, os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-    from retina.config import Settings
-    from retina.clients.screenshot import ScreenshotClient
-
-    settings = Settings()
-    client = ScreenshotClient(settings, use_subprocess=True)
     try:
-        result = await client.capture("http://spekit.com", "spekit_debug_uvicorn")
-        vp_path = result.viewport
-        vp_size = os.path.getsize(vp_path) if vp_path and os.path.exists(vp_path) else 0
-        return {"viewport": vp_path, "viewport_size": vp_size, "full_page": result.full_page}
-    except Exception as e:
-        return {"error": str(e)}
-    finally:
-        await client.close()
+        import sys, os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+        from retina.config import Settings
+        from retina.clients.screenshot import ScreenshotClient
+
+        settings = Settings()
+        client = ScreenshotClient(settings, use_subprocess=True)
+        try:
+            result = await client.capture("http://spekit.com", "spekit_debug_uvicorn")
+            vp_path = result.viewport
+            vp_size = os.path.getsize(vp_path) if vp_path and os.path.exists(vp_path) else 0
+            return {"viewport": vp_path, "viewport_size": vp_size, "full_page": result.full_page}
+        except Exception as e:
+            return {"error": str(e)}
+        finally:
+            await client.close()
+    except ImportError:
+        return {"error": "Screenshot functionality not available in lite deployment", "status": "disabled"}

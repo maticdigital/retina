@@ -382,31 +382,34 @@ def remove_competitor(project_id: str, comp_index: int, user: CurrentUser):
 
 def _run_competitor_pipeline_background(project_id: str, competitor_url: str) -> None:
     """Run a lightweight pipeline for a single competitor URL (Lighthouse + BuiltWith + screenshot)."""
-    import asyncio
-    import sys, os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
-    from app.services.pipeline import collect_site_data
-    from retina.clients.pagespeed import PageSpeedClient
-    from retina.clients.builtwith import BuiltWithClient
-    from retina.clients.screenshot import ScreenshotClient
-    from retina.config import Settings
-
-    settings = Settings()
-
-    async def _run():
-        psi = PageSpeedClient(settings.pagespeed_api_key)
-        bw = BuiltWithClient(settings.builtwith_api_key)
-        ss = ScreenshotClient(get_supabase())
-        try:
-            report = await collect_site_data(competitor_url, psi, bw, ss)
-            logger.info("Competitor pipeline complete for %s in project %s", competitor_url, project_id)
-        except Exception:
-            logger.exception("Competitor pipeline failed for %s", competitor_url)
-
     try:
-        asyncio.run(_run())
-    except Exception:
-        logger.exception("Competitor pipeline runner failed for %s", competitor_url)
+        import asyncio
+        import sys, os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
+        from app.services.pipeline import collect_site_data
+        from retina.clients.pagespeed import PageSpeedClient
+        from retina.clients.builtwith import BuiltWithClient
+        from retina.clients.screenshot import ScreenshotClient
+        from retina.config import Settings
+
+        settings = Settings()
+
+        async def _run():
+            psi = PageSpeedClient(settings.pagespeed_api_key)
+            bw = BuiltWithClient(settings.builtwith_api_key)
+            ss = ScreenshotClient(get_supabase())
+            try:
+                report = await collect_site_data(competitor_url, psi, bw, ss)
+                logger.info("Competitor pipeline complete for %s in project %s", competitor_url, project_id)
+            except Exception:
+                logger.exception("Competitor pipeline failed for %s", competitor_url)
+
+        try:
+            asyncio.run(_run())
+        except Exception:
+            logger.exception("Competitor pipeline runner failed for %s", competitor_url)
+    except ImportError:
+        logger.warning("Heavy dependencies not available, skipping competitor pipeline for %s", competitor_url)
 
 
 class PipelineStatusOut(BaseModel):
