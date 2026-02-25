@@ -1,5 +1,7 @@
 """FastAPI entry point for the Retina API."""
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,14 +13,20 @@ app = FastAPI(
     description="API layer between React frontend and Retina analysis engine",
 )
 
-# ── CORS — allow the React dev server ─────────────────────────────────────────
+# ── CORS ─────────────────────────────────────────────────────────────────────
+# Default origins: Vite dev server.  In production, set CORS_ORIGINS as a
+# comma-separated list (e.g. "https://retina-web.up.railway.app").
+
+_default_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+_env_origins = os.environ.get("CORS_ORIGINS", "")
+_extra_origins = [o.strip() for o in _env_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",   # Vite dev server
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=_default_origins + _extra_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

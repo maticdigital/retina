@@ -1,0 +1,31 @@
+# Retina API — production dependencies for Railway deployment
+# Generated from pyproject.toml direct dependencies
+# Railway's Nixpacks builder auto-detects this file
+
+# Web framework
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+
+# Data & config
+pydantic>=2.6,<3.0
+pydantic-settings>=2.1,<3.0
+python-dotenv>=1.0,<2.0
+pyyaml>=6.0,<7.0
+
+# HTTP client
+httpx>=0.27,<1.0
+
+# AI / LLM
+anthropic>=0.40,<1.0
+
+# PDF generation
+weasyprint>=60.0
+jinja2>=3.1,<4.0
+pillow>=10.0
+
+# Supabase
+supabase>=2.0
+
+# Browser automation (screenshot capture)
+playwright>=1.40,<2.0

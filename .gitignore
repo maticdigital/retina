@@ -34,6 +34,18 @@ coverage.xml
 *.json
 !tests/fixtures/*.json
 !package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.*.json
+!eslint.config.js
+
+# Test output
+test_output*.pdf
+test_output*.json
 
 # Screenshots
 screenshots/
+
+# Node (web/ frontend)
+web/node_modules/
+web/dist/
