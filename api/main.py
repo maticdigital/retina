@@ -24,6 +24,7 @@ app = FastAPI(
 _default_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://retina-gwm9flz9h-wearematic.vercel.app",
 ]
 _env_origins = os.environ.get("CORS_ORIGINS", "")
 _extra_origins = [o.strip() for o in _env_origins.split(",") if o.strip()]
