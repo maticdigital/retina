@@ -321,9 +321,19 @@ function ObservationsCard({
   );
 }
 
+/* ── Score interpretation helpers ─────────────────── */
+
+function scoreInterpretation(score: number): string {
+  if (score >= 90) return 'Strong performance';
+  if (score >= 70) return 'Solid, with room to improve';
+  if (score >= 50) return 'Needs improvement';
+  return 'Needs significant improvement';
+}
+
 /* ── Performance & Platform ──────────────────────── */
 
 function PerformanceSection({ data }: { data: LensDetailData }) {
+  const [techDetailsOpen, setTechDetailsOpen] = useState(false);
   const mobile = data.lighthouse_data.mobile || {};
   const desktop = data.lighthouse_data.desktop || {};
   const cwv = mobile.core_web_vitals || {};
@@ -331,22 +341,6 @@ function PerformanceSection({ data }: { data: LensDetailData }) {
   const lhScores = mobile.lighthouse_scores || {};
   const desktopLhScores = desktop.lighthouse_scores || {};
   const lensColor = data.lens_color;
-
-  // CWV metrics
-  const metrics: { key: string; label: string; value: number | null; desktopValue: number | null; format: (v: number | null) => string; thresholdKey: string }[] = [
-    { key: 'lcp', label: 'Largest Contentful Paint', value: cwv.largest_contentful_paint_ms ?? null, desktopValue: desktopCwv.largest_contentful_paint_ms ?? null, format: formatMs, thresholdKey: 'lcp' },
-    { key: 'fcp', label: 'First Contentful Paint', value: cwv.first_contentful_paint_ms ?? null, desktopValue: desktopCwv.first_contentful_paint_ms ?? null, format: formatMs, thresholdKey: 'fcp' },
-    { key: 'cls', label: 'Cumulative Layout Shift', value: cwv.cumulative_layout_shift ?? null, desktopValue: desktopCwv.cumulative_layout_shift ?? null, format: formatCLS, thresholdKey: 'cls' },
-    { key: 'tbt', label: 'Total Blocking Time', value: cwv.total_blocking_time_ms ?? null, desktopValue: desktopCwv.total_blocking_time_ms ?? null, format: formatMs, thresholdKey: 'tbt' },
-  ];
-
-  // Lighthouse category scores
-  const categories: { key: string; label: string }[] = [
-    { key: 'performance', label: 'Performance' },
-    { key: 'accessibility', label: 'Accessibility' },
-    { key: 'best_practices', label: 'Best Practices' },
-    { key: 'seo', label: 'SEO' },
-  ];
 
   // Tech stack by tag
   const techs = data.builtwith_data.technologies || [];
@@ -379,76 +373,248 @@ function PerformanceSection({ data }: { data: LensDetailData }) {
     tbt: 'total_blocking_time_ms',
   };
 
-  // Desktop performance divergence check
-  const mobilePerf = lhScores.performance ?? 0;
-  const desktopPerf = desktopLhScores.performance ?? 0;
-  const showDesktopValues = Math.abs(mobilePerf - desktopPerf) >= 15;
+  // Top 4 headline score cards
+  const headlineScores: { key: string; label: string; tooltip: string }[] = [
+    { key: 'performance', label: 'Performance Score', tooltip: LIGHTHOUSE_TOOLTIPS.performance },
+    { key: 'accessibility', label: 'Accessibility Score', tooltip: LIGHTHOUSE_TOOLTIPS.accessibility },
+    { key: 'seo', label: 'SEO Score', tooltip: LIGHTHOUSE_TOOLTIPS.seo },
+    { key: 'best_practices', label: 'Best Practices Score', tooltip: LIGHTHOUSE_TOOLTIPS.best_practices },
+  ];
+
+  // Accessibility audit analysis
+  const mobileAudits = mobile.audits || [];
+  const a11yAudits = mobileAudits.filter((a: { category: string; score: number | null }) => a.category === 'accessibility' && a.score !== null && a.score < 1);
+  const a11yIssueCount = a11yAudits.length;
+
+  // Categorize accessibility issues
+  const a11yCats = { critical: [] as string[], moderate: [] as string[], minor: [] as string[] };
+  const CRITICAL_A11Y = ['aria-required-attr', 'aria-valid-attr', 'aria-roles', 'button-name', 'input-image-alt', 'label', 'form-field-multiple-labels'];
+  const MINOR_A11Y = ['image-alt', 'link-name', 'meta-viewport', 'tabindex'];
+  for (const a of a11yAudits) {
+    const audit = a as { id: string; title: string; score: number | null };
+    if (CRITICAL_A11Y.includes(audit.id)) {
+      a11yCats.critical.push(audit.title);
+    } else if (MINOR_A11Y.includes(audit.id)) {
+      a11yCats.minor.push(audit.title);
+    } else {
+      a11yCats.moderate.push(audit.title);
+    }
+  }
+
+  // CWV metrics for Technical Details (collapsed section)
+  const cwvMetrics: { key: string; label: string; techLabel: string; value: number | null; desktopValue: number | null; format: (v: number | null) => string; thresholdKey: string; explanation: string }[] = [
+    { key: 'lcp', label: 'Largest Contentful Paint', techLabel: 'LCP', value: cwv.largest_contentful_paint_ms ?? null, desktopValue: desktopCwv.largest_contentful_paint_ms ?? null, format: formatMs, thresholdKey: 'lcp', explanation: 'Time for the largest visible element (image/text block) to render. Under 2.5s is good.' },
+    { key: 'fcp', label: 'First Contentful Paint', techLabel: 'FCP', value: cwv.first_contentful_paint_ms ?? null, desktopValue: desktopCwv.first_contentful_paint_ms ?? null, format: formatMs, thresholdKey: 'fcp', explanation: 'Time until the first text or image appears on screen. Under 1.8s is good.' },
+    { key: 'cls', label: 'Cumulative Layout Shift', techLabel: 'CLS', value: cwv.cumulative_layout_shift ?? null, desktopValue: desktopCwv.cumulative_layout_shift ?? null, format: formatCLS, thresholdKey: 'cls', explanation: 'Measures visual stability — how much the page layout shifts during loading. Under 0.1 is good.' },
+    { key: 'tbt', label: 'Total Blocking Time', techLabel: 'TBT', value: cwv.total_blocking_time_ms ?? null, desktopValue: desktopCwv.total_blocking_time_ms ?? null, format: formatMs, thresholdKey: 'tbt', explanation: 'Total time the page is unresponsive to user input. Under 200ms is good.' },
+  ];
 
   return (
     <>
-      {/* Core Web Vitals */}
-      <h3 style={styles.sectionTitle}>Core Web Vitals</h3>
-      <div style={styles.metricGrid}>
-        {metrics.map((m) => {
-          const level = cwvStatus(m.thresholdKey, m.value);
-          const cwvItem = cwvInterps?.[CWV_INTERP_MAP[m.key]] as { what?: string; why?: string; where?: string } | undefined;
-          // Compute mobile vs desktop ratio for contextual framing
-          const hasDivergence = m.desktopValue !== null && m.value !== null && m.desktopValue > 0;
-          const mobileSlower = hasDivergence ? (m.value! / m.desktopValue!) : null;
+      {/* ── TOP ROW: Headline Score Cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: space.md, marginTop: space.md }}>
+        {headlineScores.map((cat) => {
+          const score = Math.round(lhScores[cat.key] ?? 0);
+          const bg = lighthouseScoreColor(score);
+          const interp = scoreInterpretation(score);
           return (
-            <div key={m.key} style={styles.metricCard}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
-                <span style={statusDot(level)} />
-                <span style={{ ...styles.metricLabel, flex: 1 }}>{m.label}</span>
-                {CWV_TOOLTIPS[m.key] && <Tooltip text={CWV_TOOLTIPS[m.key]} />}
+            <div key={cat.key} style={{
+              backgroundColor: color.bgCard,
+              borderRadius: radius.xl,
+              padding: space.lg,
+              boxShadow: color.shadow,
+              textAlign: 'center' as const,
+              borderTop: `3px solid ${bg}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: space.xs, marginBottom: space.sm }}>
+                <span style={{ fontFamily: font.family, fontSize: font.sizeSm, fontWeight: font.weightSemibold, color: color.text }}>{cat.label}</span>
+                <Tooltip text={cat.tooltip} />
               </div>
-              <div style={styles.metricValue}>{m.format(m.value)}</div>
-              {showDesktopValues && m.desktopValue !== null && (
-                <div style={styles.desktopNote}>
-                  Desktop: {m.format(m.desktopValue)}
-                  {mobileSlower && mobileSlower > 1.5 && m.key !== 'cls' && (
-                    <span style={styles.divergenceNote}>
-                      {' '}— mobile is {mobileSlower.toFixed(1)}× slower
-                    </span>
-                  )}
-                </div>
-              )}
-              {cwvItem?.what && (
-                <p style={styles.metricInterpretation}>{cwvItem.what}</p>
-              )}
-              {cwvItem?.why && (
-                <p style={styles.metricWhy}>{cwvItem.why}</p>
-              )}
-              {cwvItem?.where && (
-                <p style={styles.metricWhere}>{cwvItem.where}</p>
-              )}
+              <div style={{
+                fontFamily: font.family,
+                fontSize: '2.5rem',
+                fontWeight: font.weightBold,
+                color: bg,
+                lineHeight: 1,
+              }}>
+                {score}
+              </div>
+              <div style={{ fontFamily: font.family, fontSize: font.sizeXs, color: color.textMuted, marginTop: space.xs }}>
+                {interp}
+              </div>
             </div>
           );
         })}
       </div>
 
-      {/* Lighthouse Category Scores */}
-      <h3 style={styles.sectionTitle}>Lighthouse Category Scores</h3>
-      <div style={styles.pillRow}>
-        {categories.map((cat) => {
-          const score = lhScores[cat.key] ?? 0;
-          const bg = lighthouseScoreColor(score);
-          return (
-            <div key={cat.key} style={{ ...styles.scorePill, backgroundColor: bg, position: 'relative' as const }}>
-              <span
-                title={LIGHTHOUSE_TOOLTIPS[cat.key] || ''}
-                style={{ cursor: 'help' }}
-              >
-                {cat.label}
-              </span>
-              <span style={{ fontWeight: font.weightBold, marginLeft: space.xs }}>{Math.round(score)}</span>
-            </div>
-          );
-        })}
+      {/* ── SECTION 1: Site Speed Overview ── */}
+      <h3 style={styles.sectionTitle}>Site Speed Overview</h3>
+      <div style={{ ...styles.metricGrid, gridTemplateColumns: '1fr 1fr 1fr' }}>
+        {/* Desktop Load Time */}
+        <div style={styles.metricCard}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
+            <span style={statusDot(cwvStatus('lcp', desktopCwv.largest_contentful_paint_ms ?? null))} />
+            <span style={styles.metricLabel}>Desktop Load Time</span>
+          </div>
+          <div style={styles.metricValue}>{formatMs(desktopCwv.largest_contentful_paint_ms ?? null)}</div>
+          <p style={styles.metricInterpretation}>How quickly the main content loads on desktop devices</p>
+        </div>
+        {/* Mobile Load Time */}
+        <div style={styles.metricCard}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
+            <span style={statusDot(cwvStatus('lcp', cwv.largest_contentful_paint_ms ?? null))} />
+            <span style={styles.metricLabel}>Mobile Load Time</span>
+          </div>
+          <div style={styles.metricValue}>{formatMs(cwv.largest_contentful_paint_ms ?? null)}</div>
+          <p style={styles.metricInterpretation}>How quickly the main content loads on mobile devices</p>
+        </div>
+        {/* Time to Interactive */}
+        <div style={styles.metricCard}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
+            <span style={statusDot(cwvStatus('tbt', cwv.total_blocking_time_ms ?? null))} />
+            <span style={styles.metricLabel}>Time to Interactive</span>
+          </div>
+          <div style={styles.metricValue}>{formatMs(cwv.total_blocking_time_ms ?? null)}</div>
+          <p style={styles.metricInterpretation}>How long before visitors can click, scroll, and interact</p>
+        </div>
       </div>
-      <p style={styles.lighthouseHelper}>
-        Scores out of 100 — 90+ is excellent, 50–89 needs improvement, below 50 is poor according to Google Lighthouse
-      </p>
+      {/* Speed Index row */}
+      {(cwv.speed_index_ms || desktopCwv.speed_index_ms) && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: space.md, marginTop: space.md }}>
+          <div style={styles.metricCard}>
+            <span style={styles.metricLabel}>Desktop Speed Index</span>
+            <div style={styles.metricValue}>{formatMs(desktopCwv.speed_index_ms ?? null)}</div>
+            <p style={styles.metricInterpretation}>How quickly visible content populates the page on desktop</p>
+          </div>
+          <div style={styles.metricCard}>
+            <span style={styles.metricLabel}>Mobile Speed Index</span>
+            <div style={styles.metricValue}>{formatMs(cwv.speed_index_ms ?? null)}</div>
+            <p style={styles.metricInterpretation}>How quickly visible content populates the page on mobile</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── SECTION 2: Accessibility Overview ── */}
+      <h3 style={styles.sectionTitle}>Accessibility Overview</h3>
+      <div style={{
+        backgroundColor: color.bgCard,
+        borderRadius: radius.xl,
+        padding: space.lg,
+        boxShadow: color.shadow,
+      }}>
+        {a11yIssueCount === 0 ? (
+          <p style={{ fontFamily: font.family, fontSize: font.sizeSm, color: color.text, margin: 0 }}>
+            No accessibility issues detected — the site meets basic WCAG compliance standards.
+          </p>
+        ) : (
+          <>
+            <p style={{ fontFamily: font.family, fontSize: font.sizeMd, fontWeight: font.weightSemibold, color: color.text, margin: 0, marginBottom: space.sm }}>
+              {a11yIssueCount} accessibility issue{a11yIssueCount !== 1 ? 's' : ''} detected
+            </p>
+            <div style={{ display: 'flex', gap: space.lg, flexWrap: 'wrap', marginBottom: space.sm }}>
+              {a11yCats.critical.length > 0 && (
+                <div>
+                  <span style={{ fontFamily: font.family, fontSize: font.sizeXs, fontWeight: font.weightBold, color: '#EF4444' }}>
+                    {a11yCats.critical.length} Critical
+                  </span>
+                  <ul style={{ margin: `${space.xxs} 0 0 0`, paddingLeft: space.md, listStyle: 'disc' }}>
+                    {a11yCats.critical.map((t, i) => (
+                      <li key={i} style={{ fontFamily: font.family, fontSize: font.sizeXs, color: color.textMuted }}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {a11yCats.moderate.length > 0 && (
+                <div>
+                  <span style={{ fontFamily: font.family, fontSize: font.sizeXs, fontWeight: font.weightBold, color: '#F59E0B' }}>
+                    {a11yCats.moderate.length} Moderate
+                  </span>
+                  <ul style={{ margin: `${space.xxs} 0 0 0`, paddingLeft: space.md, listStyle: 'disc' }}>
+                    {a11yCats.moderate.map((t, i) => (
+                      <li key={i} style={{ fontFamily: font.family, fontSize: font.sizeXs, color: color.textMuted }}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {a11yCats.minor.length > 0 && (
+                <div>
+                  <span style={{ fontFamily: font.family, fontSize: font.sizeXs, fontWeight: font.weightBold, color: '#6B7280' }}>
+                    {a11yCats.minor.length} Minor
+                  </span>
+                  <ul style={{ margin: `${space.xxs} 0 0 0`, paddingLeft: space.md, listStyle: 'disc' }}>
+                    {a11yCats.minor.map((t, i) => (
+                      <li key={i} style={{ fontFamily: font.family, fontSize: font.sizeXs, color: color.textMuted }}>{t}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <p style={{ fontFamily: font.family, fontSize: font.sizeXs, color: color.textMuted, margin: 0 }}>
+              {a11yCats.critical.length > 0
+                ? 'Critical issues may prevent some visitors from using the site — addressing these first will have the most impact on WCAG AA compliance.'
+                : 'No critical issues found. Addressing moderate and minor issues will improve overall accessibility and WCAG compliance.'}
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* ── SECTION 3: Technical Details (collapsed by default) ── */}
+      <div style={{ marginTop: space.lg }}>
+        <button
+          onClick={() => setTechDetailsOpen(!techDetailsOpen)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: space.sm,
+            background: 'none',
+            border: `1px solid ${color.border}`,
+            borderRadius: radius.lg,
+            padding: `${space.sm} ${space.md}`,
+            cursor: 'pointer',
+            fontFamily: font.family,
+            fontSize: font.sizeSm,
+            fontWeight: font.weightSemibold,
+            color: color.text,
+            width: '100%',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>Technical Details — Core Web Vitals Reference</span>
+          <span style={{ fontSize: font.sizeXs, color: color.textMuted }}>
+            {techDetailsOpen ? '▲ Collapse' : '▼ Expand'}
+          </span>
+        </button>
+        {techDetailsOpen && (
+          <div style={{ marginTop: space.md }}>
+            <p style={{ fontFamily: font.family, fontSize: font.sizeXs, color: color.textMuted, margin: `0 0 ${space.md} 0` }}>
+              These are the raw Core Web Vitals metrics used by Google to evaluate page experience. They are included here for technical reference.
+            </p>
+            <div style={styles.metricGrid}>
+              {cwvMetrics.map((m) => {
+                const level = cwvStatus(m.thresholdKey, m.value);
+                const cwvItem = cwvInterps?.[CWV_INTERP_MAP[m.key]] as { what?: string; why?: string; where?: string } | undefined;
+                return (
+                  <div key={m.key} style={styles.metricCard}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
+                      <span style={statusDot(level)} />
+                      <span style={{ ...styles.metricLabel, flex: 1 }}>{m.label} ({m.techLabel})</span>
+                      <Tooltip text={CWV_TOOLTIPS[m.key]} />
+                    </div>
+                    <div style={styles.metricValue}>{m.format(m.value)}</div>
+                    {m.desktopValue !== null && (
+                      <div style={styles.desktopNote}>Desktop: {m.format(m.desktopValue)}</div>
+                    )}
+                    <p style={{ ...styles.metricInterpretation, fontStyle: 'italic' as const }}>{m.explanation}</p>
+                    {cwvItem?.what && <p style={styles.metricInterpretation}>{cwvItem.what}</p>}
+                    {cwvItem?.why && <p style={styles.metricWhy}>{cwvItem.why}</p>}
+                    {cwvItem?.where && <p style={styles.metricWhere}>{cwvItem.where}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Technology Stack */}
       {Object.keys(groups).length > 0 && (
@@ -885,7 +1051,7 @@ function SubDimensionCard({
             flex: 1,
             fontStyle: observation ? 'normal' : 'italic',
           }}>
-            {observation || 'No observations recorded yet'}
+            {observation || 'Awaiting analysis — click the pencil icon to add observations'}
           </p>
         </div>
       )}
@@ -919,9 +1085,20 @@ function SubDimensionGrid({
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: space.md }}>
         {entries.length === 0 ? (
-          <p style={{ ...styles.interpText, color: color.textMuted, gridColumn: '1 / -1' }}>
-            No sub-dimension scores available yet
-          </p>
+          // Fallback: show expected sub-dimension structure with placeholders
+          Object.entries(maxScores).map(([key, max]) => (
+            <SubDimensionCard
+              key={key}
+              dimKey={key}
+              score={0}
+              maxScore={max}
+              observation=""
+              lensColor={data.lens_color}
+              projectId={projectId}
+              lensId={lensId}
+              onUpdated={onUpdated}
+            />
+          ))
         ) : (
           entries.map(([key, val]) => (
             <SubDimensionCard

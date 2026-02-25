@@ -850,8 +850,21 @@ def _extract_tech_stack(builtwith_data: dict) -> dict[str, list[str]]:
                 seen_names.add(name)
                 break
 
+    # If multiple CMS platforms detected, flag for analyst review
+    cms_conflict = False
+    bw_meta = builtwith_data.get("meta") or {}
+    if bw_meta.get("cms_conflict") == "true":
+        cms_conflict = True
+
     # Convert sets to sorted lists, limit each category
-    return {k: sorted(v)[:8] for k, v in result.items() if v}
+    output: dict[str, Any] = {k: sorted(v)[:8] for k, v in result.items() if v}
+    if cms_conflict:
+        output["_cms_conflict"] = True
+        output["_cms_conflict_note"] = (
+            f"Multiple CMS platforms detected ({bw_meta.get('cms_detected', '')}) — "
+            "flagged for analyst review. Verify which is currently active."
+        )
+    return output
 
 
 LENS_COLORS = {
@@ -910,7 +923,12 @@ def get_lens_detail(project_id: str, lens_id: str, user: CurrentUser):
 
     # Build all lens scores for the nav bar
     automated = project_data.get("automated_scores") or {}
-    analyst_map = {s["lens_name"]: s for s in analyst_scores}
+    # Build analyst map, preferring entries for the primary_url
+    analyst_map: dict[str, Any] = {}
+    for s in analyst_scores:
+        ln = s.get("lens_name", "")
+        if ln not in analyst_map or s.get("site_url") == project.get("primary_url"):
+            analyst_map[ln] = s
     lens_scores_list: list[dict[str, Any]] = []
     for lid in LENS_ORDER:
         score: float | None = None
@@ -959,8 +977,21 @@ def get_lens_detail(project_id: str, lens_id: str, user: CurrentUser):
         interps["analyst_narrative"] = analyst_lenses_interp[lens_id]
 
     # Analyst sub-scores + observations for this lens
+    # Prefer scores for primary_url; fall back to any available entry
+    primary_url = project.get("primary_url", "")
+    analyst_entry = None
+    analyst_fallback = None
+    for s in analyst_scores:
+        if s.get("lens_name") == lens_id:
+            if s.get("site_url") == primary_url:
+                analyst_entry = s
+                break
+            if analyst_fallback is None:
+                analyst_fallback = s
+    if analyst_entry is None:
+        analyst_entry = analyst_fallback or {}
+
     # Normalize to {key: {score: float, observation: str}} shape
-    analyst_entry = analyst_map.get(lens_id) or {}
     sub_scores_raw = analyst_entry.get("sub_scores") or {}
     analyst_sub: dict[str, Any] = {}
     if isinstance(sub_scores_raw, dict):
@@ -974,7 +1005,20 @@ def get_lens_detail(project_id: str, lens_id: str, user: CurrentUser):
                 analyst_sub[k] = {"score": float(v), "observation": ""}
             else:
                 analyst_sub[k] = {"score": 0.0, "observation": ""}
-    observations = analyst_entry.get("raw_observations") or ""
+
+    # For analyst lenses, ensure all expected sub-dimensions are always present
+    # so the frontend always renders the structure even before analyst input
+    DEFAULT_SUB_DIMS: dict[str, list[str]] = {
+        "brand_messaging": ["brand_visual_language", "brand_voice_messaging", "value_proposition", "brand_differentiation"],
+        "experience_design": ["interface_design", "content_taxonomy", "navigation_architecture", "responsiveness"],
+        "conversion_strategy": ["call_to_action_logic", "lead_capture_form_design", "trust_signals", "funnel_design"],
+    }
+    if lens_id in DEFAULT_SUB_DIMS:
+        for dim_key in DEFAULT_SUB_DIMS[lens_id]:
+            if dim_key not in analyst_sub:
+                analyst_sub[dim_key] = {"score": 0.0, "observation": ""}
+
+    observations = analyst_entry.get("raw_observations") or "" if isinstance(analyst_entry, dict) else ""
 
     # User-edited observations
     all_interps_raw = project_data.get("interpretations") or {}
