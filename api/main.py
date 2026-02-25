@@ -43,12 +43,16 @@ if _allow_all:
 else:
     cors_origins = _default_origins + _extra_origins + _vercel_pattern_origins
 
+# Temporarily allow all origins to fix CORS issues
+cors_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # ── Health check ──────────────────────────────────────────────────────────────
