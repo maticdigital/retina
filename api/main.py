@@ -38,6 +38,16 @@ app.add_middleware(
 
 # ── Health check ──────────────────────────────────────────────────────────────
 
+@app.get("/")
+def root():
+    return {
+        "message": "Retina API",
+        "version": "0.1.0",
+        "deployment": "vercel-lite",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
 @app.get("/health")
 def health():
     return {"status": "ok", "deployment": "vercel-lite"}
