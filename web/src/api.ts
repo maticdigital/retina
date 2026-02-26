@@ -37,6 +37,9 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     // Auto-logout on expired/invalid token
     if (res.status === 401) {
       localStorage.removeItem('access_token');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
 
     throw new ApiError(res.status, body.detail ?? 'Request failed');

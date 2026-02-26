@@ -16,37 +16,9 @@ import { ProjectCard } from '../components/ProjectCard';
 import { NewProjectModal } from '../components/NewProjectModal';
 import type { Project, SortOption, FilterOption } from '../types';
 import { toProject } from '../types';
+import { NAV_ITEMS } from './Dashboard';
 
-/* ── Icons for nav items ──────────────────────────── */
-const DashboardIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <rect x="3" y="3" width="7" height="7" rx="1" />
-    <rect x="14" y="3" width="7" height="7" rx="1" />
-    <rect x="3" y="14" width="7" height="7" rx="1" />
-    <rect x="14" y="14" width="7" height="7" rx="1" />
-  </svg>
-);
-
-const ProjectsIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
-  </svg>
-);
-
-const AdminIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
-  </svg>
-);
-
-/* ── Shared nav items ─────────────────────────────── */
-
-export const NAV_ITEMS = [
-  { label: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-  { label: 'Projects', icon: <ProjectsIcon />, path: '/projects' },
-  { label: 'Admin', icon: <AdminIcon />, path: '/admin' },
-];
+type Tab = 'active' | 'archived';
 
 const SORT_OPTIONS: { label: string; value: SortOption }[] = [
   { label: 'Newest', value: 'newest' },
@@ -55,7 +27,7 @@ const SORT_OPTIONS: { label: string; value: SortOption }[] = [
   { label: 'Score', value: 'score' },
 ];
 
-const FILTER_OPTIONS: { label: string; value: FilterOption }[] = [
+const STATUS_FILTER_OPTIONS: { label: string; value: FilterOption }[] = [
   { label: 'All', value: 'all' },
   { label: 'Draft', value: 'draft' },
   { label: 'In Progress', value: 'in_progress' },
@@ -63,6 +35,26 @@ const FILTER_OPTIONS: { label: string; value: FilterOption }[] = [
 ];
 
 /* ── Skeleton card (loading placeholder) ──────────── */
+
+const shimmerKeyframes = `
+@keyframes shimmer-projects {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+`;
+
+if (typeof document !== 'undefined' && !document.getElementById('shimmer-projects-style')) {
+  const style = document.createElement('style');
+  style.id = 'shimmer-projects-style';
+  style.textContent = shimmerKeyframes;
+  document.head.appendChild(style);
+}
+
+const shimmerBg = {
+  background: `linear-gradient(90deg, #E0E0E0 25%, #ECECEC 50%, #E0E0E0 75%)`,
+  backgroundSize: '800px 100%',
+  animation: 'shimmer-projects 1.5s infinite linear',
+};
 
 function SkeletonCard() {
   return (
@@ -79,7 +71,20 @@ function SkeletonCard() {
 
 /* ── Empty state ──────────────────────────────────── */
 
-function EmptyState({ onNew }: { onNew: () => void }) {
+function EmptyState({ tab, onNew }: { tab: Tab; onNew: () => void }) {
+  if (tab === 'archived') {
+    return (
+      <div style={styles.emptyState}>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={color.textDim} strokeWidth="1.5">
+          <polyline points="21 8 21 21 3 21 3 8" />
+          <rect x="1" y="3" width="22" height="5" />
+          <line x1="10" y1="12" x2="14" y2="12" />
+        </svg>
+        <h3 style={styles.emptyTitle}>No archived projects</h3>
+        <p style={styles.emptyText}>Archived projects will appear here.</p>
+      </div>
+    );
+  }
   return (
     <div style={styles.emptyState}>
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={color.textDim} strokeWidth="1.5">
@@ -94,9 +99,10 @@ function EmptyState({ onNew }: { onNew: () => void }) {
 
 /* ── Component ────────────────────────────────────── */
 
-export function Dashboard() {
+export function Projects() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [tab, setTab] = useState<Tab>('active');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('newest');
   const [filter, setFilter] = useState<FilterOption>('all');
@@ -105,9 +111,9 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
 
-  const loadProjects = (includeArchived = false) => {
+  const loadProjects = () => {
     setLoading(true);
-    fetchProjects(includeArchived)
+    fetchProjects(tab === 'archived')
       .then((data) => {
         setProjects(data.map(toProject));
         setError(null);
@@ -122,7 +128,12 @@ export function Dashboard() {
 
   useEffect(() => {
     loadProjects();
-  }, [filter]);
+  }, [tab]);
+
+  // Reset status filter when switching to archived tab
+  useEffect(() => {
+    if (tab === 'archived') setFilter('all');
+  }, [tab]);
 
   const sidebarUser = {
     id: user?.id ?? '',
@@ -156,7 +167,7 @@ export function Dashboard() {
   const handleUnarchive = async (projectId: string) => {
     try {
       await unarchiveProject(projectId);
-      loadProjects(filter === 'archived');
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to unarchive');
     }
@@ -174,10 +185,14 @@ export function Dashboard() {
   /* ── Filter & sort ──────────────────────────────── */
   const visible = projects
     .filter((p) => {
-      if (p.archived) return false;
-      if (filter !== 'all') {
-        if (p.status !== filter) return false;
-      }
+      // Tab-level filter
+      if (tab === 'archived' && !p.archived) return false;
+      if (tab === 'active' && p.archived) return false;
+
+      // Status filter (only on active tab)
+      if (tab === 'active' && filter !== 'all' && p.status !== filter) return false;
+
+      // Search
       if (search) {
         const q = search.toLowerCase();
         return p.title.toLowerCase().includes(q) || p.url.toLowerCase().includes(q);
@@ -203,18 +218,38 @@ export function Dashboard() {
       <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
 
       <main style={styles.main}>
-        {/* Greeting */}
-        <h1 style={styles.greeting}>Welcome, {user?.name ?? 'User'}</h1>
+        {/* Page heading */}
+        <h1 style={styles.heading}>Projects</h1>
+
+        {/* Tab bar */}
+        <div style={styles.tabBar}>
+          <button
+            style={tab === 'active' ? { ...styles.tab, ...styles.tabActive } : styles.tab}
+            onClick={() => setTab('active')}
+          >
+            Active
+          </button>
+          <button
+            style={tab === 'archived' ? { ...styles.tab, ...styles.tabActive } : styles.tab}
+            onClick={() => setTab('archived')}
+          >
+            Archived
+          </button>
+        </div>
 
         {/* Toolbar: search + filters + new */}
         <div style={styles.toolbar}>
           <SearchBar value={search} onChange={setSearch} />
           <div style={styles.filters}>
             <Select value={sort} onChange={setSort} options={SORT_OPTIONS} />
-            <Select value={filter} onChange={setFilter} options={FILTER_OPTIONS} />
-            <button style={styles.newBtn} onClick={() => setShowNewProject(true)}>
-              + New Analysis
-            </button>
+            {tab === 'active' && (
+              <Select value={filter} onChange={setFilter} options={STATUS_FILTER_OPTIONS} />
+            )}
+            {tab === 'active' && (
+              <button style={styles.newBtn} onClick={() => setShowNewProject(true)}>
+                + New Analysis
+              </button>
+            )}
           </div>
         </div>
 
@@ -229,7 +264,7 @@ export function Dashboard() {
             <SkeletonCard />
           </div>
         ) : visible.length === 0 && !search && filter === 'all' ? (
-          <EmptyState onNew={() => setShowNewProject(true)} />
+          <EmptyState tab={tab} onNew={() => setShowNewProject(true)} />
         ) : visible.length === 0 ? (
           <p style={styles.noResults}>No projects match your search.</p>
         ) : (
@@ -257,29 +292,7 @@ export function Dashboard() {
     </div>
   );
 }
-
 /* ── Styles ───────────────────────────────────────── */
-
-const shimmerKeyframes = `
-@keyframes shimmer {
-  0% { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
-}
-`;
-
-// Inject shimmer animation once
-if (typeof document !== 'undefined' && !document.getElementById('shimmer-style')) {
-  const style = document.createElement('style');
-  style.id = 'shimmer-style';
-  style.textContent = shimmerKeyframes;
-  document.head.appendChild(style);
-}
-
-const shimmerBg = {
-  background: `linear-gradient(90deg, #E0E0E0 25%, #ECECEC 50%, #E0E0E0 75%)`,
-  backgroundSize: '800px 100%',
-  animation: 'shimmer 1.5s infinite linear',
-};
 
 const styles: Record<string, React.CSSProperties> = {
   layout: {
@@ -293,7 +306,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: `${space.xl} ${space.xxl}`,
     maxWidth: 1200,
   },
-  greeting: {
+  heading: {
     margin: 0,
     marginBottom: space.lg,
     fontFamily: font.family,
@@ -301,6 +314,33 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: font.size2xl,
     color: color.text,
   },
+
+  /* Tab bar */
+  tabBar: {
+    display: 'flex',
+    gap: space.xs,
+    marginBottom: space.lg,
+    borderBottom: `1px solid ${color.border}`,
+  },
+  tab: {
+    padding: `${space.sm} ${space.lg}`,
+    border: 'none',
+    borderBottom: '2px solid transparent',
+    background: 'none',
+    fontFamily: font.family,
+    fontSize: font.sizeBase,
+    fontWeight: font.weightMedium,
+    color: color.textMuted,
+    cursor: 'pointer',
+    transition: 'color 0.15s, border-color 0.15s',
+  },
+  tabActive: {
+    color: color.accent,
+    borderBottomColor: color.accent,
+    fontWeight: font.weightSemibold,
+  },
+
+  /* Toolbar */
   toolbar: {
     display: 'flex',
     alignItems: 'center',
@@ -326,11 +366,15 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: 'nowrap',
     transition: 'background-color 0.15s',
   },
+
+  /* Grid */
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
     gap: space.lg,
   },
+
+  /* Error */
   errorBanner: {
     padding: space.sm,
     marginBottom: space.md,
