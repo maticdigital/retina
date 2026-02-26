@@ -2,8 +2,12 @@
   "buildCommand": "cd web && npm install && npm run build",
   "outputDirectory": "web/dist",
   "framework": null,
+  "functions": {
+    "api/**": {
+      "excludeFiles": "**"
+    }
+  },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/main.py" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
