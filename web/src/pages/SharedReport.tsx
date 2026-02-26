@@ -925,7 +925,10 @@ function ReportViewer({ data }: { data: SharedProjectData }) {
           <h1 style={s.pageTitle}>
             <span style={{ color: color.textMuted }}>Project</span>
             <span style={{ color: color.textDim, fontWeight: font.weightRegular }}> | </span>
-            <span style={{ fontWeight: font.weightRegular }}>{project.name}</span>
+            <span
+              style={{ fontWeight: font.weightRegular, cursor: activeLens ? 'pointer' : 'default', textDecoration: activeLens ? 'underline' : 'none' }}
+              onClick={() => activeLens && setActiveLens(null)}
+            >{project.name}</span>
           </h1>
         </div>
 
