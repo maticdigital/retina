@@ -85,11 +85,11 @@ def invite_user(body: InviteUserRequest, user: CurrentUser):
     if not auth_user:
         raise HTTPException(status_code=500, detail="Auth user creation returned no user")
 
-    # Insert profile row
+    # Upsert profile row (trigger may have already created it)
     try:
         profile_resp = (
             sb.table("users")
-            .insert({
+            .upsert({
                 "id": str(auth_user.id),
                 "email": body.email,
                 "name": body.name,
