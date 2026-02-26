@@ -59,10 +59,11 @@ def list_users(user: CurrentUser):
 
 @router.post("/users", response_model=UserOut, status_code=201)
 def invite_user(body: InviteUserRequest, user: CurrentUser):
-    """Create a new user account (admin/owner only).
+    """Create a new user account and send invitation email (admin/owner only).
 
-    Creates an auth account in Supabase Auth, then inserts a profile row
-    in the users table.
+    Creates an auth account in Supabase Auth with a password, then sends
+    an invitation email so the user knows they have an account. Also
+    upserts a profile row in the users table.
     """
     _require_admin(user)
     sb = get_supabase()
@@ -104,6 +105,12 @@ def invite_user(body: InviteUserRequest, user: CurrentUser):
     if not profile_resp.data:
         raise HTTPException(status_code=500, detail="Profile insert returned no data")
 
+    # Send invitation email via Supabase Auth (best-effort, don't fail if email fails)
+    try:
+        sb.auth.admin.invite_user_by_email(body.email)
+    except Exception:
+        pass  # Account is created; email delivery is best-effort
+
     return profile_resp.data[0]
 
 
@@ -129,3 +136,31 @@ def update_user(user_id: str, body: UpdateUserRequest, user: CurrentUser):
         raise HTTPException(status_code=404, detail="User not found")
 
     return resp.data[0]
+
+
+@router.delete("/users/{user_id}", status_code=204)
+def delete_user(user_id: str, user: CurrentUser):
+    """Delete a user account (admin/owner only).
+
+    Removes the user from both the users profile table and Supabase Auth.
+    Admins cannot delete themselves.
+    """
+    _require_admin(user)
+
+    if user_id == user["id"]:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
+
+    sb = get_supabase()
+
+    # Delete from users profile table first
+    sb.table("users").delete().eq("id", user_id).execute()
+
+    # Delete from Supabase Auth
+    try:
+        sb.auth.admin.delete_user(user_id)
+    except Exception as e:
+        detail = str(e)
+        if "not found" in detail.lower():
+            pass  # Auth user already gone, that's fine
+        else:
+            raise HTTPException(status_code=500, detail=f"Failed to delete auth user: {detail}")

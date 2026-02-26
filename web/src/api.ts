@@ -528,6 +528,10 @@ export async function updateUser(userId: string, body: UpdateUserBody): Promise<
   });
 }
 
+export async function deleteUser(userId: string): Promise<void> {
+  await apiFetch(`/admin/users/${userId}`, { method: 'DELETE' });
+}
+
 /* ── Sharing endpoints ───────────────────────────────────────────────── */
 
 export interface EnableShareResponse {

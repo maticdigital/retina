@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { fetchUsers, inviteUser, updateUser } from '../api';
+import { fetchUsers, inviteUser, updateUser, deleteUser } from '../api';
 import type { AdminUser, InviteUserBody } from '../api';
 import { color, font, space, radius, sidebar as sidebarToken } from '../tokens';
 import { Sidebar } from '../components/Sidebar';
@@ -196,6 +196,8 @@ export function Admin() {
   const [error, setError] = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     fetchUsers()
@@ -219,6 +221,21 @@ export function Admin() {
   const handleUpdate = async (userId: string, data: { name?: string; role?: string; is_active?: boolean }) => {
     const updated = await updateUser(userId, data);
     setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
+  };
+
+  const handleDelete = async () => {
+    if (!deletingUser) return;
+    setDeleteLoading(true);
+    try {
+      await deleteUser(deletingUser.id);
+      setUsers((prev) => prev.filter((u) => u.id !== deletingUser.id));
+      setDeletingUser(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to delete user');
+      setDeletingUser(null);
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const isAdmin = user?.role === 'owner' || user?.role === 'admin';
@@ -293,9 +310,16 @@ export function Admin() {
                       {new Date(u.created_at).toLocaleDateString()}
                     </td>
                     <td style={{ ...styles.td, textAlign: 'right' }}>
-                      <button style={styles.editBtn} onClick={() => setEditingUser(u)}>
-                        Edit
-                      </button>
+                      <div style={{ display: 'flex', gap: space.xs, justifyContent: 'flex-end' }}>
+                        <button style={styles.editBtn} onClick={() => setEditingUser(u)}>
+                          Edit
+                        </button>
+                        {u.id !== user?.id && (
+                          <button style={styles.deleteBtn} onClick={() => setDeletingUser(u)}>
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -307,6 +331,38 @@ export function Admin() {
 
       <InviteModal open={showInvite} onClose={() => setShowInvite(false)} onSubmit={handleInvite} />
       <EditModal open={!!editingUser} user={editingUser} onClose={() => setEditingUser(null)} onSubmit={handleUpdate} />
+
+      {/* Delete confirmation modal */}
+      {deletingUser && (
+        <div style={modalStyles.overlay} onClick={() => setDeletingUser(null)}>
+          <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+            <div style={modalStyles.header}>
+              <h2 style={modalStyles.title}>Delete User</h2>
+              <button style={modalStyles.closeBtn} onClick={() => setDeletingUser(null)} aria-label="Close">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p style={{ fontFamily: font.family, fontSize: font.sizeBase, color: color.text, margin: `0 0 ${space.xs}`, lineHeight: 1.5 }}>
+              Are you sure you want to delete <strong>{deletingUser.name}</strong> ({deletingUser.email})?
+            </p>
+            <p style={{ fontFamily: font.family, fontSize: font.sizeSm, color: color.textMuted, margin: `0 0 ${space.lg}`, lineHeight: 1.5 }}>
+              This will permanently remove their account and cannot be undone.
+            </p>
+            <div style={modalStyles.actions}>
+              <button style={modalStyles.cancelBtn} onClick={() => setDeletingUser(null)}>Cancel</button>
+              <button
+                style={{ ...modalStyles.submitBtn, backgroundColor: color.error }}
+                onClick={handleDelete}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? 'Deleting…' : 'Delete User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -422,6 +478,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: font.sizeXs,
     fontWeight: font.weightMedium,
     color: color.text,
+    cursor: 'pointer',
+  },
+  deleteBtn: {
+    padding: `${space.xxs} ${space.sm}`,
+    border: `1px solid #FEE2E2`,
+    borderRadius: radius.md,
+    backgroundColor: '#FEF2F2',
+    fontFamily: font.family,
+    fontSize: font.sizeXs,
+    fontWeight: font.weightMedium,
+    color: color.error,
     cursor: 'pointer',
   },
 };
