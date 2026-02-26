@@ -58,6 +58,7 @@ create table if not exists public.projects (
   primary_url text not null,
   competitor_urls jsonb not null default '[]'::jsonb,
   status text not null default 'draft' check (status in ('draft', 'in_progress', 'complete')),
+  archived boolean not null default false,
   created_by uuid references public.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

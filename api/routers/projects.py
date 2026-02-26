@@ -15,7 +15,6 @@ from app.services.archive_store import (
     archive_project as _archive,
     unarchive_project as _unarchive,
     is_archived,
-    get_archived_ids,
 )
 
 logger = logging.getLogger(__name__)
@@ -118,13 +117,11 @@ def list_projects(user: CurrentUser, include_archived: bool = False):
     else:
         screenshot_map = {}
 
-    archived_ids = get_archived_ids()
     for row in rows:
-        row["archived"] = row["id"] in archived_ids
         row["screenshot_url"] = screenshot_map.get(row["id"])
 
     if not include_archived:
-        rows = [r for r in rows if not r["archived"]]
+        rows = [r for r in rows if not r.get("archived", False)]
 
     return rows
 
