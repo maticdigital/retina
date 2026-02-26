@@ -545,3 +545,49 @@ export async function enableSharing(projectId: string, password: string): Promis
 export async function disableSharing(projectId: string): Promise<void> {
   await apiFetch(`/projects/${projectId}/share`, { method: 'DELETE' });
 }
+
+export interface SharedLensData {
+  lens_id: string;
+  lens_name: string;
+  lens_color: string;
+  lens_score: number | null;
+  max_score: number;
+  lighthouse_data: Record<string, unknown>;
+  builtwith_data: Record<string, unknown>;
+  interpretations: Record<string, unknown>;
+  analyst_sub_scores: Record<string, { score: number; observation: string }>;
+  analyst_observations: string;
+  user_observations: string | null;
+  artifacts: Artifact[];
+}
+
+export interface SharedProjectData {
+  project: {
+    id: string;
+    name: string;
+    primary_url: string;
+    status: string;
+    screenshot_url: string | null;
+    retina_score: number | null;
+    lens_scores: LensScore[];
+    tech_stack?: TechStack;
+    competitors: CompetitorSummary[];
+    recommendations: RecommendationQuadrant[];
+  };
+  lenses: SharedLensData[];
+}
+
+export async function verifyShareToken(token: string, password: string): Promise<SharedProjectData> {
+  const res = await fetch(`${BASE}/shared/${token}/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new ApiError(res.status, body.detail ?? 'Verification failed');
+  }
+
+  return res.json() as Promise<SharedProjectData>;
+}

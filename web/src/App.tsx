@@ -9,6 +9,7 @@ import { LensDetail } from './pages/LensDetail';
 import { Profile } from './pages/Profile';
 import { Admin } from './pages/Admin';
 import ProjectStatus from './pages/ProjectStatus';
+import { SharedReport } from './pages/SharedReport';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/shared/:token" element={<SharedReport />} />
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
