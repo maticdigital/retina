@@ -2,11 +2,6 @@
   "buildCommand": "cd web && npm install && npm run build",
   "outputDirectory": "web/dist",
   "framework": null,
-  "functions": {
-    "api/**": {
-      "excludeFiles": "**"
-    }
-  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
