@@ -18,7 +18,8 @@ export function ShareModal({ projectId, isShared, shareToken, onClose, onUpdate 
   const [copied, setCopied] = useState(false);
   const [passwordUpdated, setPasswordUpdated] = useState(false);
 
-  const shareUrl = shareToken ? `${window.location.origin}/shared/${shareToken}` : '';
+  const publicBase = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+  const shareUrl = shareToken ? `${publicBase}/shared/${shareToken}` : '';
 
   const handleEnable = async () => {
     if (password.length < 4) {
