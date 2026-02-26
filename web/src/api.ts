@@ -124,6 +124,8 @@ export interface ProjectOut {
   updated_at: string;
   archived?: boolean;
   screenshot_url?: string | null;
+  is_shared?: boolean;
+  share_token?: string | null;
 }
 
 export interface ProjectDetail extends ProjectOut {
@@ -524,4 +526,22 @@ export async function updateUser(userId: string, body: UpdateUserBody): Promise<
     method: 'PUT',
     body: JSON.stringify(body),
   });
+}
+
+/* ── Sharing endpoints ───────────────────────────────────────────────── */
+
+export interface EnableShareResponse {
+  share_token: string;
+  share_url: string;
+}
+
+export async function enableSharing(projectId: string, password: string): Promise<EnableShareResponse> {
+  return apiFetch<EnableShareResponse>(`/projects/${projectId}/share`, {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+}
+
+export async function disableSharing(projectId: string): Promise<void> {
+  await apiFetch(`/projects/${projectId}/share`, { method: 'DELETE' });
 }

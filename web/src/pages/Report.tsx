@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getProjectSummary, generateRecommendations, saveRecommendations, addCompetitor, removeCompetitor, refreshProject, uploadScreenshot, deleteScreenshot, startPdfExport, getExportStatus } from '../api';
+import { getProjectSummary, getProject, generateRecommendations, saveRecommendations, addCompetitor, removeCompetitor, refreshProject, uploadScreenshot, deleteScreenshot, startPdfExport, getExportStatus } from '../api';
 import type { ProjectSummary, LensScore, RecommendationQuadrant, RecommendationItem, QuadrantData, ExportStatusResponse } from '../api';
 import { color, font, space, radius, sidebar as sidebarToken } from '../tokens';
 import { Sidebar } from '../components/Sidebar';
+import { ShareModal } from '../components/ShareModal';
 import { NAV_ITEMS } from './Dashboard';
 
 import performanceIcon from '../assets/performance_icon.svg';
@@ -508,8 +509,27 @@ export function Report() {
     if (file) handleScreenshotUpload(file);
   };
 
-  // SHARE — UI PLACEHOLDER
-  const handleShare = () => setToastMsg('Share Project — coming soon');
+  // SHARE — modal state
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [isShared, setIsShared] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+
+  const handleShare = async () => {
+    // Fetch current share status before opening modal
+    try {
+      const proj = await getProject(projectId!);
+      setIsShared(proj.is_shared ?? false);
+      setShareToken(proj.share_token ?? null);
+    } catch {
+      // Fall back to current state if fetch fails
+    }
+    setShareModalOpen(true);
+  };
+
+  const handleShareUpdate = (shared: boolean, token: string | null) => {
+    setIsShared(shared);
+    setShareToken(token);
+  };
 
   // PDF EXPORT — modal state
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -995,6 +1015,17 @@ export function Report() {
           </div>
         </div>
       </main>
+
+      {/* Share Modal */}
+      {shareModalOpen && (
+        <ShareModal
+          projectId={projectId!}
+          isShared={isShared}
+          shareToken={shareToken}
+          onClose={() => setShareModalOpen(false)}
+          onUpdate={handleShareUpdate}
+        />
+      )}
 
       {/* Export Modal */}
       {exportModalOpen && (
