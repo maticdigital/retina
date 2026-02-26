@@ -107,6 +107,14 @@ except ImportError as e:
             "project_id": project_id
         }
 
+# Load sharing router
+try:
+    from api.routers import sharing
+    app.include_router(sharing.router)
+    logger.info("Sharing router loaded successfully")
+except ImportError as e:
+    logger.warning("Sharing router failed to load: %s", e)
+
 # ── Debug endpoints with safe imports ─────────────────────────────────────────
 
 @app.get("/debug/info")
