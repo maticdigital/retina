@@ -45,6 +45,11 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(res.status, body.detail ?? 'Request failed');
   }
 
+  // 204 No Content has no body to parse
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
   return res.json() as Promise<T>;
 }
 
