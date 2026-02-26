@@ -24,27 +24,12 @@ app = FastAPI(
 _default_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://retina-gwm9flz9h-wearematic.vercel.app",
+    "https://retina-pi.vercel.app",
 ]
 _env_origins = os.environ.get("CORS_ORIGINS", "")
 _extra_origins = [o.strip() for o in _env_origins.split(",") if o.strip()]
 
-# Allow all Vercel preview URLs for this project
-_vercel_pattern_origins = [
-    "https://retina-pi.vercel.app",
-    "https://retina-pi-git-frontend-wearematic.vercel.app",
-    "https://retina-git-frontend-wearematic.vercel.app",
-]
-
-# For development, allow broader origins if ALLOW_ALL_ORIGINS is set
-_allow_all = os.environ.get("ALLOW_ALL_ORIGINS", "").lower() == "true"
-if _allow_all:
-    cors_origins = ["*"]
-else:
-    cors_origins = _default_origins + _extra_origins + _vercel_pattern_origins
-
-# Temporarily allow all origins to fix CORS issues
-cors_origins = ["*"]
+cors_origins = _default_origins + _extra_origins
 
 app.add_middleware(
     CORSMiddleware,
