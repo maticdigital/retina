@@ -1,5 +1,4 @@
-# Retina API — lightweight dependencies for Vercel deployment
-# Excludes heavy dependencies like weasyprint and playwright
+# Retina API — full dependencies for Railway deployment
 
 # Web framework
 fastapi>=0.115
@@ -19,7 +18,7 @@ httpx>=0.27,<1.0
 # AI / LLM
 anthropic>=0.40,<1.0
 
-# Basic image processing (lighter than full PIL)
+# Image processing
 pillow>=10.0
 
 # Supabase and dependencies
@@ -29,5 +28,8 @@ postgrest>=0.10
 realtime>=1.0
 storage3>=0.5
 
-# Template rendering (for basic HTML, not PDF)
+# Template rendering
 jinja2>=3.1,<4.0
+
+# PDF generation (Railway has enough space for these)
+weasyprint>=62.0
