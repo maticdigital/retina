@@ -102,20 +102,12 @@ function ScoreDonut({ lensScores, retinaScore }: { lensScores: LensScore[]; reti
 
 /* ── Recommendations Section ──────────────────────── */
 
-const QUADRANT_IDS = ['no_brainers', 'quick_wins', 'growth_moves', 'transformational'] as const;
 const QUADRANT_LABEL_MAP: Record<string, string> = {
   'No Brainers': 'no_brainers',
   'Quick Wins': 'quick_wins',
   'Growth Moves': 'growth_moves',
   'Transformational': 'transformational',
 };
-const QUADRANT_ID_LABEL: Record<string, string> = {
-  no_brainers: 'No Brainers',
-  quick_wins: 'Quick Wins',
-  growth_moves: 'Growth Moves',
-  transformational: 'Transformational',
-};
-
 const LENS_OPTIONS = [
   'Performance & Platform',
   'SEO & AI Visibility',
@@ -370,16 +362,6 @@ function SpinnerSmall() {
     <svg width="14" height="14" viewBox="0 0 20 20" style={{ animation: 'spin 1s linear infinite', marginRight: 4 }}>
       <circle cx="10" cy="10" r="8" stroke={color.border} strokeWidth="2.5" fill="none" />
       <path d="M10 2 A8 8 0 0 1 18 10" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ImagePlaceholderIcon() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={color.textDim} strokeWidth="1.5">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <path d="M3 16l5-5 4 4 4-4 5 5" />
-      <circle cx="8.5" cy="8.5" r="1.5" />
     </svg>
   );
 }
@@ -853,7 +835,7 @@ export function Report() {
                     };
                     return (
                       <div key={cat}>
-                        <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 600, color: color.textSecondary, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
+                        <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 600, color: color.textDim, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
                           {labels[cat]}
                         </p>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -864,8 +846,8 @@ export function Report() {
                               borderRadius: '999px',
                               fontSize: '0.78rem',
                               fontWeight: 500,
-                              background: color.surfaceAlt,
-                              color: color.textPrimary,
+                              background: color.bgPage,
+                              color: color.text,
                               border: `1px solid ${color.border}`,
                             }}>
                               {tech}

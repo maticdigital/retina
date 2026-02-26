@@ -339,7 +339,6 @@ function PerformanceSection({ data }: { data: LensDetailData }) {
   const cwv = mobile.core_web_vitals || {};
   const desktopCwv = desktop.core_web_vitals || {};
   const lhScores = mobile.lighthouse_scores || {};
-  const desktopLhScores = desktop.lighthouse_scores || {};
   const lensColor = data.lens_color;
 
   // Tech stack by tag
@@ -882,35 +881,6 @@ function AnalystLensSection({ data, onOpenCopilot, onRefresh }: {
     </>
   );
 }
-
-/* ── Sub-dimension descriptions per analyst lens ──── */
-
-const BRAND_DESCRIPTIONS: Record<string, string> = {
-  brand_visual_language: 'Cohesion of logo, colors, typography, and imagery across all pages',
-  brand_voice_messaging: 'Consistency and audience-appropriateness of written tone and messaging',
-  value_proposition: 'Clarity and immediacy of what the company does and who it serves',
-  brand_differentiation: 'How distinctly the brand stands apart from competitors visually and verbally',
-};
-
-const EXPERIENCE_DESCRIPTIONS: Record<string, string> = {
-  interface_design: 'Overall aesthetic quality, polish, and modernity of the visual design',
-  content_taxonomy: 'Organization of content with clear categories, labels, and hierarchy',
-  navigation_architecture: 'Intuitiveness of site structure, menus, and findability within 2-3 clicks',
-  responsiveness: 'Quality of the experience across mobile, tablet, and desktop devices',
-};
-
-const CONVERSION_DESCRIPTIONS: Record<string, string> = {
-  call_to_action_logic: 'Clarity, visibility, and strategic placement of calls to action',
-  lead_capture_form_design: 'Optimization of forms for completion — length, fields, progressive disclosure',
-  trust_signals: 'Presence and effectiveness of testimonials, case studies, logos, and certifications',
-  funnel_design: 'How naturally the path from awareness to conversion flows without dead ends',
-};
-
-const LENS_DESCRIPTIONS: Record<string, Record<string, string>> = {
-  brand_messaging: BRAND_DESCRIPTIONS,
-  experience_design: EXPERIENCE_DESCRIPTIONS,
-  conversion_strategy: CONVERSION_DESCRIPTIONS,
-};
 
 /* ── Sub-dimension max scores per lens ──── */
 
@@ -1482,7 +1452,7 @@ export function LensDetail() {
               site_url: '', // filled from project context
               lens_name: data.lens_name,
               lens_definition: LENS_DEFINITIONS[data.lens_id] ?? '',
-              sub_scores: data.analyst_sub_scores,
+              sub_scores: Object.fromEntries(Object.entries(data.analyst_sub_scores).map(([k, v]) => [k, v.score])),
               current_observations: data.user_observations ?? data.analyst_observations ?? '',
             },
           );

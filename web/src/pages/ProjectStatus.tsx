@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProjectStatus, retryPipeline, type PipelineStatus } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -43,7 +43,7 @@ const LENS_ICONS: LensIcon[] = [
 
 /* ── SVG lens icons (same as LensDetail page) ─────────── */
 
-const LENS_SVGS: Record<string, JSX.Element> = {
+const LENS_SVGS: Record<string, React.ReactNode> = {
   performance: (
     <svg width="36" height="36" viewBox="0 0 40 40" fill="none">
       <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="2" fill="none" />
@@ -246,7 +246,7 @@ export default function ProjectStatus() {
           {/* Step list */}
           <div style={styles.stepList}>
             {STEPS.map((step, idx) => {
-              let icon: JSX.Element;
+              let icon: React.ReactNode;
               let labelStyle: React.CSSProperties = styles.stepLabel;
 
               if (isError && currentStep === step.key) {
