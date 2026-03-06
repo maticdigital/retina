@@ -19,12 +19,12 @@ GRAY_MID = "#9BA8B7"
 GRAY_TEXT = "#6B7280"
 WHITE = "#FFFFFF"
 
-# Lens colors — spec-defined
+# Lens colors — aligned with frontend
 LENS_COLORS = {
-    "performance_technical_health": "#0066FF",
-    "seo_ai_visibility": "#00B8D9",
-    "brand_messaging": "#7B61FF",
-    "experience_design": "#FF6B6B",
+    "performance_technical_health": "#076EFF",
+    "seo_ai_visibility": "#00C864",
+    "brand_messaging": "#9B59B6",
+    "experience_design": "#E74C3C",
     "conversion_strategy": "#FF8C00",
 }
 

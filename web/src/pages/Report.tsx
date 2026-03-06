@@ -10,11 +10,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { ShareModal } from '../components/ShareModal';
 import { NAV_ITEMS } from './Dashboard';
 
-import performanceIcon from '../assets/performance_icon.svg';
-import seoIcon from '../assets/seo_icon.svg';
-import brandIcon from '../assets/brand_icon.svg';
-import experienceIcon from '../assets/experience_icon.svg';
-import conversionIcon from '../assets/conversion_icon.svg';
+import { LensIcon } from '../components/LensIcons';
 
 /* ── Constants ────────────────────────────────────── */
 
@@ -24,14 +20,6 @@ const LENS_COLORS: Record<string, string> = {
   brand_messaging: '#9B59B6',
   experience_design: '#E74C3C',
   conversion_strategy: '#FF8C00',
-};
-
-const LENS_ICONS: Record<string, string> = {
-  performance_technical_health: performanceIcon,
-  seo_ai_visibility: seoIcon,
-  brand_messaging: brandIcon,
-  experience_design: experienceIcon,
-  conversion_strategy: conversionIcon,
 };
 
 /* ── Toast ────────────────────────────────────────── */
@@ -752,7 +740,7 @@ export function Report() {
               style={{...styles.lensTab, ...(isMobile ? { minWidth: 100, flex: 'none' } : {})}}
               onClick={() => navigate(`/projects/${projectId}/lens/${lens.lens_id}`)}
             >
-              <img src={LENS_ICONS[lens.lens_id]} alt="" style={styles.lensIcon} />
+              <LensIcon lensId={lens.lens_id} color={LENS_COLORS[lens.lens_id] || color.text} />
               <span style={styles.lensTabName}>{lens.lens_name}</span>
             </button>
           ))}
