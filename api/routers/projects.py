@@ -1138,20 +1138,60 @@ def copilot_chat(
         raise HTTPException(status_code=500, detail="AI service unavailable")
 
     ctx = body.context
+
+    # Build sub-dimension context block from analyst scores
+    sub_dim_lines: list[str] = []
+    if ctx.sub_scores:
+        # Fetch full sub-dimension data (scores + observations) from Supabase
+        analyst_resp = sb.table("analyst_scores").select("sub_scores").eq(
+            "project_id", project_id
+        ).eq("lens_name", LENS_MAP.get(lens_id, "")).execute()
+        full_sub = {}
+        if analyst_resp.data:
+            full_sub = analyst_resp.data[0].get("sub_scores", {})
+
+        for dim_key, dim_val in full_sub.items():
+            label = dim_key.replace("_", " ").title()
+            if isinstance(dim_val, dict):
+                score = dim_val.get("score", 0)
+                obs = dim_val.get("observation", "")
+                if obs:
+                    sub_dim_lines.append(f"{label}: {score}/5\n{obs}")
+                else:
+                    sub_dim_lines.append(f"{label}: {score}/5")
+            elif isinstance(dim_val, (int, float)):
+                sub_dim_lines.append(f"{label}: {dim_val}/5")
+
+    # Build the system prompt with rich sub-dimension context
+    sub_context = ""
+    if sub_dim_lines:
+        total = sum(
+            (v.get("score", 0) if isinstance(v, dict) else float(v))
+            for v in full_sub.values()
+        )
+        sub_context = (
+            f"\n\nThe analyst has completed the following sub-dimension assessments:\n\n"
+            + "\n\n".join(sub_dim_lines)
+            + f"\n\nTotal lens score: {total:.0f}/20"
+            + "\n\nUse these sub-dimension assessments as your primary context. "
+            "Synthesize them into a cohesive strategic narrative. "
+            "Lead with what is working. Frame gaps as opportunities. "
+            "Do not repeat sub-dimension names verbatim — synthesize them."
+        )
+
     system_prompt = (
-        f"You are Retina Copilot, an AI assistant helping an analyst refine "
+        f"You are Retina Copilot, an AI assistant helping an analyst synthesize "
         f"the {ctx.lens_name} observations for a client website analysis.\n\n"
         f"Project: {ctx.project_name}\n"
         f"Site URL: {ctx.site_url}\n"
         f"Lens: {ctx.lens_name} — {ctx.lens_definition}\n"
-        f"Sub-dimension scores: {json.dumps(ctx.sub_scores)}\n"
-        f"Current observations:\n{ctx.current_observations}\n\n"
-        "You are helping an analyst refine the brand/experience/conversion "
-        "observations for a client website analysis. Be specific, strategic, "
-        "and opportunity-framed. Reference the actual site where possible. "
-        "Lead with strengths, frame gaps as opportunities. "
-        "Keep responses concise and actionable. Use Matic's consultative voice — "
-        "confident, direct, always connecting findings to business outcomes."
+        + (f"Current observations:\n{ctx.current_observations}\n" if ctx.current_observations else "")
+        + sub_context + "\n\n"
+        "Be specific, strategic, and opportunity-framed. Reference the actual "
+        "site where possible. Keep responses concise and actionable. "
+        "Use Matic's consultative voice — confident, direct, always connecting "
+        "findings to business outcomes. Write 2-3 paragraphs of expert strategic "
+        "commentary, not a checklist review."
     )
 
     # Build messages list

@@ -852,21 +852,21 @@ function AnalystLensSection({ data, onOpenCopilot, onRefresh }: {
 }) {
   return (
     <>
-      {/* Overall Observations */}
+      {/* Sub Dimensions Grid — analysts build evidence first */}
+      <SubDimensionGrid
+        data={data}
+        projectId={data.project_id}
+        lensId={data.lens_id}
+        onUpdated={onRefresh}
+      />
+
+      {/* Overall Observations — synthesize after sub-dimensions */}
       <OverallObservationsCard
         projectId={data.project_id}
         lensId={data.lens_id}
         lensColor={data.lens_color}
         data={data}
         onOpenCopilot={onOpenCopilot}
-      />
-
-      {/* Sub Dimensions Grid */}
-      <SubDimensionGrid
-        data={data}
-        projectId={data.project_id}
-        lensId={data.lens_id}
-        onUpdated={onRefresh}
       />
 
       {/* Artifacts */}

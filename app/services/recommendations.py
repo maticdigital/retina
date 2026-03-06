@@ -115,11 +115,35 @@ No markdown, no code fences — just the JSON.\
 """
 
 
+def _format_sub_dim(dim_key: str, dim_val: Any) -> str | None:
+    """Format a single sub-dimension for the prompt. Returns None if empty."""
+    label = dim_key.replace("_", " ").title()
+    if isinstance(dim_val, dict):
+        score = dim_val.get("score", 0)
+        obs = dim_val.get("observation", "")
+        if obs:
+            return f"- {label}: {score}/5 — {obs}"
+        return f"- {label}: {score}/5"
+    elif isinstance(dim_val, (int, float)):
+        return f"- {label}: {dim_val}/5"
+    return None
+
+
+def _get_overall_observations(analyst_row: dict) -> str:
+    """Get the best available overall observations text for an analyst lens."""
+    # User-edited observations take priority
+    if analyst_row.get("refined_observations"):
+        return analyst_row["refined_observations"]
+    if analyst_row.get("raw_observations"):
+        return analyst_row["raw_observations"]
+    return ""
+
+
 def generate_recommendations(project_id: str) -> dict[str, Any]:
     """Generate AI recommendations for a project and store in report.
 
-    Gathers all available data, calls Claude, and updates the report's
-    quadrant_data field.
+    Fetches ALL data fresh from Supabase immediately before building
+    the Claude prompt — never uses cached or in-memory data.
 
     Returns the generated quadrant_data dict.
     """
@@ -132,7 +156,8 @@ def generate_recommendations(project_id: str) -> dict[str, Any]:
 
     sb = get_supabase()
 
-    # Gather project data
+    # ── Fetch ALL fresh data from Supabase ─────────────────────────────────
+
     proj_resp = sb.table("projects").select("*").eq("id", project_id).execute()
     if not proj_resp.data:
         raise ValueError("Project not found")
@@ -143,6 +168,7 @@ def generate_recommendations(project_id: str) -> dict[str, Any]:
     )
     project_data = data_resp.data[0] if data_resp.data else {}
 
+    # Fresh analyst scores — always re-fetch
     scores_resp = (
         sb.table("analyst_scores").select("*").eq("project_id", project_id).execute()
     )
@@ -158,90 +184,157 @@ def generate_recommendations(project_id: str) -> dict[str, Any]:
     )
     report = reports_resp.data[0] if reports_resp.data else None
 
-    # Build context for Claude
-    context_parts: list[str] = []
+    # ── Build structured prompt ────────────────────────────────────────────
 
-    context_parts.append(f"Website: {project['primary_url']}")
-    context_parts.append(f"Project: {project['name']}")
+    parts: list[str] = []
+    parts.append(
+        f"Generate strategic recommendations for {project['name']} "
+        f"({project['primary_url']})."
+    )
 
-    if report and report.get("retina_score"):
-        context_parts.append(f"Overall Retina Score: {report['retina_score']}/100")
+    # --- AUTOMATED ANALYSIS ---
 
-    # Lighthouse data
+    parts.append("\nAUTOMATED ANALYSIS:")
+
+    # Performance & Platform
     lh = project_data.get("lighthouse_data") or {}
-    if lh:
-        context_parts.append("\n## Lighthouse Performance Data")
-        for device in ["mobile", "desktop"]:
-            if device in lh:
-                scores = lh[device].get("lighthouse_scores", {})
-                vitals = lh[device].get("core_web_vitals", {})
-                context_parts.append(f"\n### {device.title()}")
-                if scores:
-                    context_parts.append(f"Lighthouse Scores: {json.dumps(scores)}")
-                if vitals:
-                    context_parts.append(f"Core Web Vitals: {json.dumps(vitals)}")
-
-    # BuiltWith data
-    bw = project_data.get("builtwith_data") or {}
-    if bw:
-        techs = bw.get("technologies", [])
-        if techs:
-            tech_names = [t["name"] for t in techs[:20]]
-            context_parts.append(f"\n## Technology Stack\n{', '.join(tech_names)}")
-
-    # Automated scores
     auto_scores = project_data.get("automated_scores") or {}
-    if auto_scores:
-        context_parts.append("\n## Automated Lens Scores")
-        for lens, data in auto_scores.items():
-            if isinstance(data, dict) and data.get("score") is not None:
-                context_parts.append(f"- {lens}: {data['score']}/20")
+    perf_score = auto_scores.get("performance_technical_health", {})
+    perf_total = perf_score.get("score", "N/A") if isinstance(perf_score, dict) else "N/A"
+    parts.append(f"\nPerformance & Platform ({perf_total}/20):")
 
-    # Analyst scores
-    if analyst_scores:
-        context_parts.append("\n## Analyst Lens Scores")
-        for s in analyst_scores:
-            sub = s.get("sub_scores", {})
-            total = _sum_sub_scores(sub)
-            context_parts.append(f"- {s['lens_name']}: {total:.1f}/20")
-            # Include per-sub-dimension scores and observations
-            for dim_key, dim_val in sub.items():
-                if isinstance(dim_val, dict):
-                    dim_score = dim_val.get("score", 0)
-                    dim_obs = dim_val.get("observation", "")
-                    label = dim_key.replace("_", " ").title()
-                    context_parts.append(f"  - {label}: {dim_score}/5")
-                    if dim_obs:
-                        context_parts.append(f"    {dim_obs[:200]}")
-                elif isinstance(dim_val, (int, float)):
-                    label = dim_key.replace("_", " ").title()
-                    context_parts.append(f"  - {label}: {dim_val}/5")
-            if s.get("raw_observations"):
-                obs = s["raw_observations"][:500]
-                context_parts.append(f"  Overall observations: {obs}")
+    # Core Web Vitals from mobile (primary)
+    mobile_lh = lh.get("mobile", {})
+    vitals = mobile_lh.get("core_web_vitals", {})
+    if vitals:
+        lcp = vitals.get("LCP", "N/A")
+        fcp = vitals.get("FCP", "N/A")
+        cls = vitals.get("CLS", "N/A")
+        tbt = vitals.get("TBT", "N/A")
+        parts.append(f"- LCP: {lcp} | FCP: {fcp} | CLS: {cls} | TBT: {tbt}")
 
-    # User-edited observations (take priority over AI-generated)
+    # Lighthouse category scores
+    for device in ["mobile", "desktop"]:
+        dev_data = lh.get(device, {})
+        lh_scores = dev_data.get("lighthouse_scores", {})
+        if lh_scores:
+            perf_s = lh_scores.get("performance", "N/A")
+            acc_s = lh_scores.get("accessibility", "N/A")
+            bp_s = lh_scores.get("best_practices", lh_scores.get("best-practices", "N/A"))
+            seo_s = lh_scores.get("seo", "N/A")
+            parts.append(
+                f"- Lighthouse ({device.title()}) — Performance: {perf_s} | "
+                f"Accessibility: {acc_s} | Best Practices: {bp_s} | SEO: {seo_s}"
+            )
+
+    # Technology stack
+    bw = project_data.get("builtwith_data") or {}
+    techs = bw.get("technologies", [])
+    if techs:
+        tech_names = [t["name"] for t in techs[:20]]
+        parts.append(f"- Stack: {', '.join(tech_names)}")
+
+    # SEO & AI Visibility
+    seo_score = auto_scores.get("seo_ai_visibility", {})
+    seo_total = seo_score.get("score", "N/A") if isinstance(seo_score, dict) else "N/A"
+    parts.append(f"\nSEO & AI Visibility ({seo_total}/20):")
+
+    # Include SEO sub-dimension details if available
+    if isinstance(seo_score, dict):
+        seo_subs = seo_score.get("sub_scores", {})
+        for sk, sv in seo_subs.items():
+            label = sk.replace("_", " ").title()
+            if isinstance(sv, dict):
+                parts.append(f"- {label}: {sv.get('score', 'N/A')}/5")
+            elif isinstance(sv, (int, float)):
+                parts.append(f"- {label}: {sv}/5")
+
+    # --- ANALYST ASSESSMENT ---
+
+    # Map analyst scores by lens_name for easy lookup
+    analyst_by_lens: dict[str, dict] = {}
+    for s in analyst_scores:
+        analyst_by_lens[s.get("lens_name", "")] = s
+
+    # Also check for user-edited observations stored in project_data
     interps = project_data.get("interpretations") or {}
     user_edits = interps.get("_user_edits") or {}
-    if user_edits:
-        context_parts.append("\n## Analyst-Edited Observations")
-        for lens_key, obs_text in user_edits.items():
-            if obs_text and not lens_key.startswith("_"):
-                label = lens_key.replace("_", " ").title()
-                context_parts.append(f"\n### {label}")
-                context_parts.append(str(obs_text)[:500])
 
-    # AI Interpretations
-    if interps:
-        context_parts.append("\n## AI Interpretations")
-        for key, val in interps.items():
-            if key.startswith("_") or key == "analyst_lenses":
-                continue  # Skip internal keys
-            if isinstance(val, dict) and val.get("section_narrative"):
-                context_parts.append(f"\n### {key}")
-                context_parts.append(val["section_narrative"])
+    analyst_lenses = [
+        ("Brand & Messaging", "brand_messaging", [
+            "brand_visual_language", "brand_voice_messaging",
+            "value_proposition", "brand_differentiation",
+        ]),
+        ("Experience & Design", "experience_design", [
+            "interface_design", "content_taxonomy",
+            "navigation_architecture", "responsiveness",
+        ]),
+        ("Conversion & Strategy", "conversion_strategy", [
+            "call_to_action_logic", "lead_capture_form_design",
+            "trust_signals", "funnel_design",
+        ]),
+    ]
 
-    user_message = "\n".join(context_parts)
+    has_analyst = False
+    analyst_parts: list[str] = []
+
+    for lens_name, lens_key, expected_dims in analyst_lenses:
+        row = analyst_by_lens.get(lens_name, {})
+        sub = row.get("sub_scores", {})
+        total = _sum_sub_scores(sub)
+
+        # Get overall observations (user-edited > refined > raw)
+        overall_obs = ""
+        # Check user_edits in project_data.interpretations first
+        if user_edits.get(lens_key):
+            overall_obs = str(user_edits[lens_key])
+        else:
+            overall_obs = _get_overall_observations(row)
+
+        # Only include if there's actual content
+        if not sub and not overall_obs:
+            continue
+
+        has_analyst = True
+        analyst_parts.append(f"\n{lens_name} ({total:.0f}/20):")
+
+        if overall_obs:
+            analyst_parts.append(f"Overall: {overall_obs}")
+
+        for dim_key in expected_dims:
+            dim_val = sub.get(dim_key)
+            if dim_val is not None:
+                line = _format_sub_dim(dim_key, dim_val)
+                if line:
+                    analyst_parts.append(line)
+
+    if has_analyst:
+        parts.append("\nANALYST ASSESSMENT:")
+        parts.extend(analyst_parts)
+
+    # --- JSON output instructions ---
+
+    parts.append("""
+Return this exact JSON structure:
+{
+  "no_brainers": [{"title": "...", "description": "...", "lens": "..."}],
+  "quick_wins": [{"title": "...", "description": "...", "lens": "..."}],
+  "growth_moves": [{"title": "...", "description": "...", "lens": "..."}],
+  "transformational": [{"title": "...", "description": "...", "lens": "..."}]
+}
+
+Rules:
+- 2-4 items per quadrant where evidence supports it
+- Omit a quadrant entirely if there is no genuine recommendation for it
+- No-Brainers: low effort, immediate impact
+- Quick Wins: low effort, moderate impact
+- Growth Moves: significant effort, high impact
+- Transformational Initiatives: major investment, long-term strategic payoff
+- Never use audit language — frame every recommendation as an opportunity
+- Reference specific scores and analyst observations where relevant
+- Lead with what is working before identifying gaps""")
+
+    user_message = "\n".join(parts)
     logger.info(
         "Generating recommendations for %s (%d chars context)",
         project_id,
@@ -266,7 +359,19 @@ def generate_recommendations(project_id: str) -> dict[str, Any]:
             raw = raw[:-3]
         raw = raw.strip()
 
-    quadrant_data = json.loads(raw)
+    try:
+        quadrant_data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        logger.error(
+            "Failed to parse Claude recommendations JSON for %s. "
+            "Error: %s\nFull response:\n%s",
+            project_id,
+            exc,
+            raw,
+        )
+        raise ValueError(
+            f"AI returned invalid JSON. Parse error: {exc}"
+        ) from exc
 
     # Validate structure
     for q in QUADRANT_ORDER:
@@ -291,12 +396,11 @@ def generate_recommendations(project_id: str) -> dict[str, Any]:
         for s in analyst_scores:
             sub = s.get("sub_scores", {})
             retina_score += _sum_sub_scores(sub)
-        for lens, data in auto_scores.items():
-            if isinstance(data, dict) and data.get("score") is not None:
-                # Only add auto scores for lenses without analyst scores
+        for lens, score_data in auto_scores.items():
+            if isinstance(score_data, dict) and score_data.get("score") is not None:
                 analyst_lens_names = {s["lens_name"] for s in analyst_scores}
                 if lens not in analyst_lens_names:
-                    retina_score += data["score"]
+                    retina_score += score_data["score"]
 
         save_report(
             project_id=project_id,
