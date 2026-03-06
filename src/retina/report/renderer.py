@@ -19,20 +19,57 @@ from jinja2 import Environment, BaseLoader
 
 
 def _ensure_weasyprint_libs() -> None:
-    """Ensure Homebrew dynamic libraries are discoverable on macOS.
+    """Ensure native libraries are discoverable for WeasyPrint.
 
-    Safe to call multiple times — short-circuits if already set.
-    Called explicitly at the top of render_pdf() to guarantee the
-    library path is available regardless of which thread/process
-    first imports this module.
+    On macOS, setting DYLD_LIBRARY_PATH at runtime has no effect because
+    the dynamic linker reads it only at process startup (SIP restriction).
+    Instead, we pre-load the required shared libraries by full path using
+    ctypes so they're already resident when WeasyPrint/cairocffi need them.
+
+    On Linux (Railway/nixpacks), we set LD_LIBRARY_PATH which does work
+    at runtime for subsequent dlopen() calls.
+
+    Safe to call multiple times — short-circuits via a module-level flag.
     """
-    if os.environ.get("DYLD_LIBRARY_PATH"):
+    import ctypes
+    import platform
+
+    if getattr(_ensure_weasyprint_libs, "_done", False):
         return
-    brew_lib = Path("/opt/homebrew/lib")
-    if not brew_lib.exists():
-        brew_lib = Path("/usr/local/lib")
-    if brew_lib.exists() and (brew_lib / "libgobject-2.0.dylib").exists():
+    _ensure_weasyprint_libs._done = True
+
+    if platform.system() == "Darwin":
+        brew_lib = Path("/opt/homebrew/lib")
+        if not brew_lib.exists():
+            brew_lib = Path("/usr/local/lib")
+        if not brew_lib.exists():
+            return
+        # Pre-load native libs by full path so ctypes.util.find_library()
+        # and cffi's ffi.dlopen() can resolve them.
+        for lib_name in [
+            "libglib-2.0.dylib",
+            "libgobject-2.0.dylib",
+            "libpango-1.0.dylib",
+            "libpangocairo-1.0.dylib",
+            "libpangoft2-1.0.dylib",
+            "libcairo.dylib",
+            "libgdk_pixbuf-2.0.dylib",
+            "libffi.dylib",
+        ]:
+            lib_path = brew_lib / lib_name
+            if lib_path.exists():
+                try:
+                    ctypes.cdll.LoadLibrary(str(lib_path))
+                except OSError:
+                    pass
         os.environ["DYLD_LIBRARY_PATH"] = str(brew_lib)
+    else:
+        # Linux — set LD_LIBRARY_PATH if not already configured
+        if not os.environ.get("LD_LIBRARY_PATH"):
+            import glob as glob_mod
+            nix_libs = glob_mod.glob("/nix/store/*/lib")
+            if nix_libs:
+                os.environ["LD_LIBRARY_PATH"] = ":".join(nix_libs)
 
 
 # Best-effort at import time (works for main thread / CLI usage)

@@ -83,22 +83,9 @@ def _run_export(project_id: str, job_id: str):
         if src_path not in sys.path:
             sys.path.insert(0, src_path)
 
-        # WeasyPrint native lib path — set before any import of renderer
-        import platform
-        if platform.system() == "Darwin":
-            # macOS — Homebrew lib path
-            os.environ.setdefault("DYLD_LIBRARY_PATH", "/opt/homebrew/lib")
-        else:
-            # Linux (Railway/nixpacks) — nix store lib paths
-            # Nixpacks sets library paths, but ensure LD_LIBRARY_PATH is available
-            if not os.environ.get("LD_LIBRARY_PATH"):
-                # Search common nix store locations for libgobject
-                import glob as glob_mod
-                nix_libs = glob_mod.glob("/nix/store/*/lib")
-                if nix_libs:
-                    os.environ["LD_LIBRARY_PATH"] = ":".join(nix_libs)
-
         # Try to import heavy dependencies, fall back to lite versions
+        # Note: renderer._ensure_weasyprint_libs() handles native lib
+        # loading for both macOS (ctypes pre-load) and Linux (LD_LIBRARY_PATH)
         try:
             from api.services.pdf_adapter import build_analysis_run
             from retina.report.renderer import render_pdf
