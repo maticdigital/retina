@@ -36,3 +36,6 @@ bcrypt>=4.0
 
 # PDF generation (Railway has enough space for these)
 weasyprint>=62.0
+
+# Screenshot capture
+playwright>=1.40
