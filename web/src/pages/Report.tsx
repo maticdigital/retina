@@ -988,7 +988,7 @@ export function Report() {
                       <span style={styles.lensScoreValue}>
                         {lens.score !== null ? (
                           <>
-                            <span style={styles.scoreNum}>{lens.score % 1 === 0 ? lens.score : lens.score.toFixed(1)}</span>
+                            <span style={{ ...styles.scoreNum, color: LENS_COLORS[lens.lens_id] || color.accent }}>{lens.score % 1 === 0 ? lens.score : lens.score.toFixed(1)}</span>
                             <span style={styles.scoreMax}>/20</span>
                           </>
                         ) : (
