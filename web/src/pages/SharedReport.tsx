@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { verifyShareToken, ApiError } from '../api';
 import type { SharedProjectData, SharedLensData, LensScore, RecommendationQuadrant, RecommendationItem, TechStack } from '../api';
 import { color, font, space, radius, sidebar as sidebarToken } from '../tokens';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 import performanceIcon from '../assets/performance_icon.svg';
 import seoIcon from '../assets/seo_icon.svg';
@@ -468,7 +469,7 @@ function SharedPerformanceSection({ lens }: { lens: SharedLensData }) {
   return (
     <>
       {/* Headline Score Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: space.md, marginTop: space.md }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: space.md, marginTop: space.md }} className="mobile-grid-2">
         {headlineScores.map((cat) => {
           const score = Math.round(lhScores[cat.key] ?? 0);
           const bg = lighthouseScoreColor(score);
@@ -491,7 +492,7 @@ function SharedPerformanceSection({ lens }: { lens: SharedLensData }) {
 
       {/* Site Speed Overview */}
       <h3 style={s.sectionTitle}>Site Speed Overview</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: space.md }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: space.md }} className="mobile-grid-1">
         <div style={s.metricCard}>
           <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
             <span style={statusDot(cwvStatus('lcp', desktopCwv.largest_contentful_paint_ms ?? null))} />
@@ -586,7 +587,7 @@ function SharedPerformanceSection({ lens }: { lens: SharedLensData }) {
             <p style={{ fontFamily: font.family, fontSize: font.sizeXs, color: color.textMuted, margin: `0 0 ${space.md} 0` }}>
               Raw Core Web Vitals metrics used by Google to evaluate page experience.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: space.md }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: space.md }} className="mobile-grid-1">
               {cwvMetrics.map((m) => {
                 const level = cwvStatus(m.thresholdKey, m.value);
                 const cwvItem = cwvInterps?.[CWV_INTERP_MAP[m.key]] as { what?: string; why?: string; where?: string } | undefined;
@@ -784,7 +785,7 @@ function SharedAnalystSection({ lens }: { lens: SharedLensData }) {
               4–5: Best in class · 3–3.5: Solid · 1.5–2.5: Notable gaps · 0.5–1: Critical
             </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: space.md }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: space.md }} className="mobile-grid-1">
             {entries.map(([key, val]) => {
               const maxScore = maxScores[key] ?? 5;
               return (
@@ -897,29 +898,48 @@ function SharedRecommendationsCard({ recommendations }: { recommendations: Recom
 function ReportViewer({ data }: { data: SharedProjectData }) {
   const { project, lenses } = data;
   const [activeLens, setActiveLens] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const activeLensData = lenses.find((l) => l.lens_id === activeLens);
 
+  const logoBlock = (
+    <>
+      <svg width="36" height="36" viewBox="0 0 664 664" fill="none">
+        <path
+          d="M332 20C149 20 0 169 0 352h87c0-135 110-245 245-245s245 110 245 245h87C664 169 515 20 332 20Zm101 332c0-56-45-101-101-101s-101 45-101 101 45 101 101 101 101-45 101-101Zm87 0c0 104-85 188-188 188S144 456 144 352s85-188 188-188 188 85 188 188Zm-130 0c0 32-26 58-58 58s-58-26-58-58 26-58 58-58 58 26 58 58Z"
+          fill={color.text}
+        />
+      </svg>
+      <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+        <span style={{ fontFamily: font.family, fontWeight: font.weightBold, fontSize: font.sizeMd, color: color.text }}>Matic</span>
+        <span style={{ fontFamily: font.family, fontWeight: font.weightBold, fontSize: font.sizeMd, color: color.text }}>Retina</span>
+      </div>
+    </>
+  );
+
   return (
     <div style={s.layout}>
-      {/* Sidebar — logo only, no nav */}
-      <aside style={s.sidebar}>
-        <div style={s.sidebarLogo}>
-          <svg width="36" height="36" viewBox="0 0 664 664" fill="none">
-            <path
-              d="M332 20C149 20 0 169 0 352h87c0-135 110-245 245-245s245 110 245 245h87C664 169 515 20 332 20Zm101 332c0-56-45-101-101-101s-101 45-101 101 45 101 101 101 101-45 101-101Zm87 0c0 104-85 188-188 188S144 456 144 352s85-188 188-188 188 85 188 188Zm-130 0c0 32-26 58-58 58s-58-26-58-58 26-58 58-58 58 26 58 58Z"
-              fill={color.text}
-            />
-          </svg>
-          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-            <span style={{ fontFamily: font.family, fontWeight: font.weightBold, fontSize: font.sizeMd, color: color.text }}>Matic</span>
-            <span style={{ fontFamily: font.family, fontWeight: font.weightBold, fontSize: font.sizeMd, color: color.text }}>Retina</span>
-          </div>
-        </div>
-        <div style={s.sidebarBadge}>Shared Report</div>
-      </aside>
+      {isMobile ? (
+        /* Mobile: fixed top bar instead of sidebar */
+        <header style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 20,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: `${space.sm} ${space.md}`,
+          backgroundColor: sidebarToken.bgColor,
+          borderBottom: `1px solid ${color.border}`,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: space.xs }}>{logoBlock}</div>
+          <div style={s.sidebarBadge}>Shared Report</div>
+        </header>
+      ) : (
+        /* Desktop: fixed sidebar */
+        <aside style={s.sidebar}>
+          <div style={s.sidebarLogo}>{logoBlock}</div>
+          <div style={s.sidebarBadge}>Shared Report</div>
+        </aside>
+      )}
 
-      <main style={s.main}>
+      <main style={s.main} className={isMobile ? 'mobile-main mobile-pad-top' : ''}>
         {/* ── PAGE HEADER ─────────────────────────────── */}
         <div style={s.pageHeader}>
           <h1 style={s.pageTitle}>
@@ -933,7 +953,7 @@ function ReportViewer({ data }: { data: SharedProjectData }) {
         </div>
 
         {/* ── LENS NAVIGATION BAR ─────────────────────── */}
-        <div style={s.lensBar}>
+        <div style={s.lensBar} className={isMobile ? 'mobile-scroll-x' : ''}>
           {project.lens_scores.map((lens) => {
             const isActive = activeLens === lens.lens_id;
             return (
@@ -942,6 +962,7 @@ function ReportViewer({ data }: { data: SharedProjectData }) {
                 style={{
                   ...s.lensTab,
                   ...(isActive ? { borderBottom: `3px solid ${LENS_COLORS[lens.lens_id] || color.accent}`, opacity: 1 } : {}),
+                  ...(isMobile ? { minWidth: 100, flex: 'none' } : {}),
                 }}
                 onClick={() => setActiveLens(isActive ? null : lens.lens_id)}
               >
@@ -983,7 +1004,7 @@ function ReportViewer({ data }: { data: SharedProjectData }) {
 
         {/* ── SUMMARY CONTENT (visible when no lens is active) ── */}
         {!activeLens && (
-          <div style={s.summaryGrid}>
+          <div style={s.summaryGrid} className={isMobile ? 'mobile-grid-1' : ''}>
             {/* LEFT COLUMN */}
             <div style={s.column}>
               {/* Project Overview */}
@@ -1054,8 +1075,8 @@ function ReportViewer({ data }: { data: SharedProjectData }) {
               {/* Score Summary */}
               <div style={s.card}>
                 <h2 style={s.cardTitle}>Score Summary</h2>
-                <div style={{ display: 'flex', gap: space.lg, alignItems: 'flex-start' }}>
-                  <div style={{ textAlign: 'center' as const }}>
+                <div style={{ display: 'flex', gap: space.lg, alignItems: 'flex-start' }} className={isMobile ? 'mobile-stack' : ''}>
+                  <div style={{ textAlign: 'center' as const, ...(isMobile ? { alignSelf: 'center' } : {}) }}>
                     <span style={{ fontFamily: font.family, fontSize: font.sizeSm, color: color.textMuted }}>Retina</span>
                     <ScoreDonut lensScores={project.lens_scores} retinaScore={project.retina_score} />
                   </div>
