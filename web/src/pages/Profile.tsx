@@ -3,10 +3,13 @@ import { useAuth } from '../context/AuthContext';
 import { updateProfile, changePassword } from '../api';
 import { color, font, space, radius, sidebar as sidebarToken } from '../tokens';
 import { Sidebar } from '../components/Sidebar';
+import { MobileDrawer } from '../components/MobileDrawer';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { NAV_ITEMS } from './Dashboard';
 
 export function Profile() {
   const { user, setUser } = useAuth();
+  const isMobile = useIsMobile();
 
   /* ── Profile form ─────────────────────────────────── */
   const [name, setName] = useState(user?.name ?? '');
@@ -74,9 +77,13 @@ export function Profile() {
 
   return (
     <div style={styles.layout}>
-      <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
+      {isMobile ? (
+        <MobileDrawer navItems={NAV_ITEMS} user={sidebarUser} />
+      ) : (
+        <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
+      )}
 
-      <main style={styles.main}>
+      <main style={styles.main} className={isMobile ? 'mobile-main mobile-pad-top' : ''}>
         <h1 style={styles.heading}>My Profile</h1>
 
         {/* ── Profile Section ─────────────────────────── */}

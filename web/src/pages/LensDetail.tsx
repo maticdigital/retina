@@ -5,6 +5,8 @@ import { getLensDetail, saveLensObservations, updateSubDimension, uploadArtifact
 import type { LensDetailData, Artifact, ExportStatusResponse } from '../api';
 import { color, font, space, radius, sidebar as sidebarToken } from '../tokens';
 import { Sidebar } from '../components/Sidebar';
+import { MobileDrawer } from '../components/MobileDrawer';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { NAV_ITEMS } from './Dashboard';
 
 import { CopilotPanel } from '../components/CopilotPanel';
@@ -1238,6 +1240,7 @@ export function LensDetail() {
   const { projectId, lensId } = useParams<{ projectId: string; lensId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [data, setData] = useState<LensDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1319,11 +1322,15 @@ export function LensDetail() {
     setExportModalOpen(false);
   };
 
+  const navContent = isMobile
+    ? <MobileDrawer navItems={NAV_ITEMS} user={sidebarUser} />
+    : <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />;
+
   if (loading) {
     return (
       <div style={styles.layout}>
-        <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
-        <main style={styles.main}>
+        {navContent}
+        <main style={styles.main} className={isMobile ? 'mobile-main mobile-pad-top' : ''}>
           <p style={styles.loadingText}>Loading lens data…</p>
         </main>
       </div>
@@ -1333,8 +1340,8 @@ export function LensDetail() {
   if (error || !data) {
     return (
       <div style={styles.layout}>
-        <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
-        <main style={styles.main}>
+        {navContent}
+        <main style={styles.main} className={isMobile ? 'mobile-main mobile-pad-top' : ''}>
           <div style={styles.errorBanner}>{error ?? 'Lens data not found'}</div>
           <button style={styles.backBtn} onClick={() => navigate(`/projects/${projectId}`)}>
             ← Back to Summary
@@ -1346,11 +1353,11 @@ export function LensDetail() {
 
   return (
     <div style={styles.layout}>
-      <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
+      {navContent}
 
-      <main style={styles.main}>
+      <main style={styles.main} className={isMobile ? 'mobile-main mobile-pad-top' : ''}>
         {/* ── PAGE HEADER ─────────────────────────────── */}
-        <div style={styles.pageHeader}>
+        <div style={styles.pageHeader} className={isMobile ? 'mobile-stack' : ''}>
           <h1 style={styles.pageTitle}>
             <span style={styles.pageTitlePrefix}>Project</span>
             <span style={styles.pageTitleDivider}> | </span>
@@ -1361,18 +1368,18 @@ export function LensDetail() {
               {data.project_name}
             </span>
           </h1>
-          <div style={styles.headerActions}>
-            <button style={styles.secondaryBtn} onClick={handleShare}>
+          <div style={styles.headerActions} className={isMobile ? 'mobile-full' : ''}>
+            <button style={{...styles.secondaryBtn, ...(isMobile ? { flex: 1 } : {})}} onClick={handleShare}>
               Share Project <ArrowCircleIcon />
             </button>
-            <button style={styles.primaryBtn} onClick={handleExport}>
+            <button style={{...styles.primaryBtn, ...(isMobile ? { flex: 1 } : {})}} onClick={handleExport}>
               Export Report <ArrowCircleIcon />
             </button>
           </div>
         </div>
 
         {/* ── LENS NAVIGATION BAR ─────────────────────── */}
-        <div style={styles.lensBar}>
+        <div style={styles.lensBar} className={isMobile ? 'mobile-scroll-x' : ''}>
           {data.lens_scores.map((lens) => {
             const isActive = lens.lens_id === lensId;
             return (
@@ -1381,6 +1388,7 @@ export function LensDetail() {
                 style={{
                   ...styles.lensTab,
                   ...(isActive ? styles.lensTabActive : {}),
+                  ...(isMobile ? { minWidth: 100, flex: 'none' } : {}),
                 }}
                 onClick={() => {
                   if (isActive) {
@@ -1398,7 +1406,7 @@ export function LensDetail() {
         </div>
 
         {/* ── LENS HEADER ROW ─────────────────────────── */}
-        <div style={styles.titleRow}>
+        <div style={styles.titleRow} className={isMobile ? 'mobile-stack' : ''}>
           <LensDonut score={data.lens_score} maxScore={data.max_score} lensColor={data.lens_color} diameter={80} />
           <div>
             <h2 style={styles.lensTitle}>{data.lens_name}</h2>

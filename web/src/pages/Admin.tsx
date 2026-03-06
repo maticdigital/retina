@@ -4,6 +4,8 @@ import { fetchUsers, inviteUser, updateUser, deleteUser } from '../api';
 import type { AdminUser, InviteUserBody } from '../api';
 import { color, font, space, radius, sidebar as sidebarToken } from '../tokens';
 import { Sidebar } from '../components/Sidebar';
+import { MobileDrawer } from '../components/MobileDrawer';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { NAV_ITEMS } from './Dashboard';
 
 /* ── Invite Modal ─────────────────────────────────── */
@@ -191,6 +193,7 @@ function EditModal({
 
 export function Admin() {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -240,11 +243,15 @@ export function Admin() {
 
   const isAdmin = user?.role === 'owner' || user?.role === 'admin';
 
+  const navContent = isMobile
+    ? <MobileDrawer navItems={NAV_ITEMS} user={sidebarUser} />
+    : <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />;
+
   if (!isAdmin) {
     return (
       <div style={styles.layout}>
-        <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
-        <main style={styles.main}>
+        {navContent}
+        <main style={styles.main} className={isMobile ? 'mobile-main mobile-pad-top' : ''}>
           <h1 style={styles.heading}>Admin</h1>
           <p style={styles.accessDenied}>You do not have permission to access this page.</p>
         </main>
@@ -254,9 +261,9 @@ export function Admin() {
 
   return (
     <div style={styles.layout}>
-      <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
+      {navContent}
 
-      <main style={styles.main}>
+      <main style={styles.main} className={isMobile ? 'mobile-main mobile-pad-top' : ''}>
         <div style={styles.headerRow}>
           <h1 style={styles.heading}>User Management</h1>
           <button style={styles.inviteBtn} onClick={() => setShowInvite(true)}>
@@ -269,8 +276,9 @@ export function Admin() {
         {loading ? (
           <p style={styles.loadingText}>Loading users…</p>
         ) : (
-          <div style={styles.tableWrap}>
-            <table style={styles.table}>
+          <div style={styles.tableWrap} className={isMobile ? 'mobile-scroll-x' : ''}>
+            <table style={{...styles.table, ...(isMobile ? { minWidth: 600 } : {})}}>
+
               <thead>
                 <tr>
                   <th style={styles.th}>Name</th>

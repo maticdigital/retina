@@ -10,6 +10,8 @@ import {
 } from '../api';
 import { color, font, space, sidebar as sidebarToken, radius } from '../tokens';
 import { Sidebar } from '../components/Sidebar';
+import { MobileDrawer } from '../components/MobileDrawer';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { SearchBar } from '../components/SearchBar';
 import { Select } from '../components/Select';
 import { ProjectCard } from '../components/ProjectCard';
@@ -102,6 +104,7 @@ function EmptyState({ tab, onNew }: { tab: Tab; onNew: () => void }) {
 export function Projects() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState<Tab>('active');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortOption>('newest');
@@ -215,9 +218,13 @@ export function Projects() {
 
   return (
     <div style={styles.layout}>
-      <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
+      {isMobile ? (
+        <MobileDrawer navItems={NAV_ITEMS} user={sidebarUser} />
+      ) : (
+        <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
+      )}
 
-      <main style={styles.main}>
+      <main style={styles.main} className={isMobile ? 'mobile-main mobile-pad-top' : ''}>
         {/* Page heading */}
         <h1 style={styles.heading}>Projects</h1>
 
@@ -238,15 +245,15 @@ export function Projects() {
         </div>
 
         {/* Toolbar: search + filters + new */}
-        <div style={styles.toolbar}>
+        <div style={styles.toolbar} className={isMobile ? 'mobile-stack' : ''}>
           <SearchBar value={search} onChange={setSearch} />
-          <div style={styles.filters}>
+          <div style={styles.filters} className={isMobile ? 'mobile-stack mobile-full' : ''}>
             <Select value={sort} onChange={setSort} options={SORT_OPTIONS} />
             {tab === 'active' && (
               <Select value={filter} onChange={setFilter} options={STATUS_FILTER_OPTIONS} />
             )}
             {tab === 'active' && (
-              <button style={styles.newBtn} onClick={() => setShowNewProject(true)}>
+              <button style={{...styles.newBtn, ...(isMobile ? { width: '100%' } : {})}} onClick={() => setShowNewProject(true)}>
                 + New Analysis
               </button>
             )}
@@ -258,7 +265,7 @@ export function Projects() {
 
         {/* Project Grid */}
         {loading ? (
-          <div style={styles.grid}>
+          <div style={styles.grid} className={isMobile ? 'mobile-grid-1' : ''}>
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
@@ -268,7 +275,7 @@ export function Projects() {
         ) : visible.length === 0 ? (
           <p style={styles.noResults}>No projects match your search.</p>
         ) : (
-          <div style={styles.grid}>
+          <div style={styles.grid} className={isMobile ? 'mobile-grid-1' : ''}>
             {visible.map((project) => (
               <ProjectCard
                 key={project.id}

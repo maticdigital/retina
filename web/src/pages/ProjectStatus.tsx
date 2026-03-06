@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getProjectStatus, retryPipeline, type PipelineStatus } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { Sidebar } from '../components/Sidebar';
+import { MobileDrawer } from '../components/MobileDrawer';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { NAV_ITEMS } from './Dashboard';
 import { color, font, space, radius } from '../tokens';
 
@@ -120,6 +122,7 @@ export default function ProjectStatus() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [status, setStatus] = useState<PipelineStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
@@ -196,8 +199,12 @@ export default function ProjectStatus() {
 
   return (
     <div style={styles.layout}>
-      <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
-      <main style={styles.main}>
+      {isMobile ? (
+        <MobileDrawer navItems={NAV_ITEMS} user={sidebarUser} />
+      ) : (
+        <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
+      )}
+      <main style={styles.main} className={isMobile ? 'mobile-main mobile-pad-top' : ''}>
         {/* Header */}
         <div style={styles.header}>
           <div>

@@ -5,6 +5,8 @@ import { getProjectSummary, getProject, generateRecommendations, saveRecommendat
 import type { ProjectSummary, LensScore, RecommendationQuadrant, RecommendationItem, QuadrantData, ExportStatusResponse } from '../api';
 import { color, font, space, radius, sidebar as sidebarToken } from '../tokens';
 import { Sidebar } from '../components/Sidebar';
+import { MobileDrawer } from '../components/MobileDrawer';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { ShareModal } from '../components/ShareModal';
 import { NAV_ITEMS } from './Dashboard';
 
@@ -438,6 +440,7 @@ export function Report() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -667,11 +670,15 @@ export function Report() {
     }
   };
 
+  const navContent = isMobile
+    ? <MobileDrawer navItems={NAV_ITEMS} user={sidebarUser} />
+    : <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />;
+
   if (loading) {
     return (
       <div style={styles.layout}>
-        <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
-        <main style={styles.main}>
+        {navContent}
+        <main style={styles.main} className={isMobile ? 'mobile-main mobile-pad-top' : ''}>
           <p style={styles.loadingText}>Loading project…</p>
         </main>
       </div>
@@ -681,8 +688,8 @@ export function Report() {
   if (error || !summary) {
     return (
       <div style={styles.layout}>
-        <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
-        <main style={styles.main}>
+        {navContent}
+        <main style={styles.main} className={isMobile ? 'mobile-main mobile-pad-top' : ''}>
           <div style={styles.errorBanner}>{error ?? 'Project not found'}</div>
           <button style={styles.backBtn} onClick={() => navigate('/')}>← Back to Dashboard</button>
         </main>
@@ -692,11 +699,11 @@ export function Report() {
 
   return (
     <div style={styles.layout}>
-      <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
+      {navContent}
 
-      <main style={styles.main}>
+      <main style={styles.main} className={isMobile ? 'mobile-main mobile-pad-top' : ''}>
         {/* ── SECTION 1: PAGE HEADER ───────────────────── */}
-        <div style={styles.pageHeader}>
+        <div style={styles.pageHeader} className={isMobile ? 'mobile-stack' : ''}>
           <div style={{ display: 'flex', alignItems: 'center', gap: space.sm }}>
             <h1 style={styles.pageTitle}>
               <span style={styles.pageTitlePrefix}>Project</span>
@@ -727,22 +734,22 @@ export function Report() {
               </div>
             </div>
           )}
-          <div style={styles.headerActions}>
-            <button style={styles.secondaryBtn} onClick={handleShare}>
+          <div style={styles.headerActions} className={isMobile ? 'mobile-full' : ''}>
+            <button style={{...styles.secondaryBtn, ...(isMobile ? { flex: 1 } : {})}} onClick={handleShare}>
               Share Project <ArrowCircleIcon />
             </button>
-            <button style={styles.primaryBtn} onClick={handleExport}>
+            <button style={{...styles.primaryBtn, ...(isMobile ? { flex: 1 } : {})}} onClick={handleExport}>
               Export Report <ArrowCircleIcon />
             </button>
           </div>
         </div>
 
         {/* ── SECTION 2: LENS NAVIGATION BAR ───────────── */}
-        <div style={styles.lensBar}>
+        <div style={styles.lensBar} className={isMobile ? 'mobile-scroll-x' : ''}>
           {summary.lens_scores.map((lens) => (
             <button
               key={lens.lens_id}
-              style={styles.lensTab}
+              style={{...styles.lensTab, ...(isMobile ? { minWidth: 100, flex: 'none' } : {})}}
               onClick={() => navigate(`/projects/${projectId}/lens/${lens.lens_id}`)}
             >
               <img src={LENS_ICONS[lens.lens_id]} alt="" style={styles.lensIcon} />
@@ -752,7 +759,7 @@ export function Report() {
         </div>
 
         {/* ── SECTION 3: SUMMARY CONTENT ───────────────── */}
-        <div style={styles.summaryGrid}>
+        <div style={styles.summaryGrid} className={isMobile ? 'mobile-grid-1' : ''}>
           {/* LEFT COLUMN */}
           <div style={styles.column}>
             {/* Card 1 — Project Overview */}
@@ -973,8 +980,8 @@ export function Report() {
             {/* Card 3 — Score Summary */}
             <div style={styles.card}>
               <h2 style={styles.cardTitle}>Score Summary</h2>
-              <div style={styles.scoreLayout}>
-                <div style={styles.donutWrap}>
+              <div style={styles.scoreLayout} className={isMobile ? 'mobile-stack' : ''}>
+                <div style={{...styles.donutWrap, ...(isMobile ? { alignSelf: 'center' } : {})}}>
                   <span style={styles.donutLabel}>Retina</span>
                   <ScoreDonut lensScores={summary.lens_scores} retinaScore={summary.retina_score} />
                 </div>

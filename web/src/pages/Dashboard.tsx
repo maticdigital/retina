@@ -10,6 +10,8 @@ import {
 } from '../api';
 import { color, font, space, sidebar as sidebarToken, radius } from '../tokens';
 import { Sidebar } from '../components/Sidebar';
+import { MobileDrawer } from '../components/MobileDrawer';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { SearchBar } from '../components/SearchBar';
 import { Select } from '../components/Select';
 import { ProjectCard } from '../components/ProjectCard';
@@ -97,7 +99,9 @@ function EmptyState({ onNew }: { onNew: () => void }) {
 export function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState('');
+
   const [sort, setSort] = useState<SortOption>('newest');
   const [filter, setFilter] = useState<FilterOption>('all');
   const [projects, setProjects] = useState<Project[]>([]);
@@ -200,19 +204,23 @@ export function Dashboard() {
 
   return (
     <div style={styles.layout}>
-      <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
+      {isMobile ? (
+        <MobileDrawer navItems={NAV_ITEMS} user={sidebarUser} />
+      ) : (
+        <Sidebar navItems={NAV_ITEMS} user={sidebarUser} />
+      )}
 
-      <main style={styles.main}>
+      <main style={styles.main} className={isMobile ? 'mobile-main mobile-pad-top' : ''}>
         {/* Greeting */}
         <h1 style={styles.greeting}>Welcome, {user?.name ?? 'User'}</h1>
 
         {/* Toolbar: search + filters + new */}
-        <div style={styles.toolbar}>
+        <div style={styles.toolbar} className={isMobile ? 'mobile-stack' : ''}>
           <SearchBar value={search} onChange={setSearch} />
-          <div style={styles.filters}>
+          <div style={styles.filters} className={isMobile ? 'mobile-stack mobile-full' : ''}>
             <Select value={sort} onChange={setSort} options={SORT_OPTIONS} />
             <Select value={filter} onChange={setFilter} options={FILTER_OPTIONS} />
-            <button style={styles.newBtn} onClick={() => setShowNewProject(true)}>
+            <button style={{...styles.newBtn, ...(isMobile ? { width: '100%' } : {})}} onClick={() => setShowNewProject(true)}>
               + New Analysis
             </button>
           </div>
@@ -223,7 +231,7 @@ export function Dashboard() {
 
         {/* Project Grid */}
         {loading ? (
-          <div style={styles.grid}>
+          <div style={styles.grid} className={isMobile ? 'mobile-grid-1' : ''}>
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
@@ -233,7 +241,7 @@ export function Dashboard() {
         ) : visible.length === 0 ? (
           <p style={styles.noResults}>No projects match your search.</p>
         ) : (
-          <div style={styles.grid}>
+          <div style={styles.grid} className={isMobile ? 'mobile-grid-1' : ''}>
             {visible.map((project) => (
               <ProjectCard
                 key={project.id}

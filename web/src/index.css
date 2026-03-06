@@ -33,3 +33,44 @@ select:focus {
   border-color: #7B5CF0;
   box-shadow: 0 0 0 2px rgba(123, 92, 240, 0.15);
 }
+
+/* ── Mobile responsive overrides ─────────────────── */
+
+@media (max-width: 768px) {
+  .mobile-main {
+    margin-left: 0 !important;
+    padding: 16px !important;
+    max-width: 100% !important;
+  }
+
+  .mobile-grid-1 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mobile-grid-2 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .mobile-stack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .mobile-hide {
+    display: none !important;
+  }
+
+  .mobile-full {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .mobile-scroll-x {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-pad-top {
+    padding-top: 60px !important;
+  }
+}
