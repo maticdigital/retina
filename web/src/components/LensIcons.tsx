@@ -2,8 +2,6 @@
  * LensIcon renders a lens SVG icon with a configurable color.
  * Uses CSS mask-image so the SVG acts as a shape filled with any color.
  */
-import React from 'react';
-
 import performanceIcon from '../assets/performance_icon.svg';
 import seoIcon from '../assets/seo_icon.svg';
 import brandIcon from '../assets/brand_icon.svg';
