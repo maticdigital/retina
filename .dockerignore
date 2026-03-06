@@ -1,0 +1,11 @@
+node_modules
+web/node_modules
+web/dist
+.git
+__pycache__
+*.pyc
+.env
+.venv
+venv
+assets/inspiration
+assets/references
