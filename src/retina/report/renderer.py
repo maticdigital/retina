@@ -64,15 +64,10 @@ def _ensure_weasyprint_libs() -> None:
                     pass
         os.environ["DYLD_LIBRARY_PATH"] = str(brew_lib)
     else:
-        # Linux (Railway/nixpacks) — libraries live in /nix/store/*/lib
-        # LD_LIBRARY_PATH alone isn't enough because ctypes.util.find_library()
-        # uses ldconfig (which doesn't respect LD_LIBRARY_PATH). Pre-load
-        # the shared objects by scanning nix store paths.
+        # Linux (Railway/nixpacks) — apt packages put libs in standard
+        # system paths (/usr/lib/x86_64-linux-gnu). Also search nix store
+        # as a fallback. Pre-load .so files so cffi/cairocffi can find them.
         import glob as glob_mod
-        nix_lib_dirs = glob_mod.glob("/nix/store/*/lib")
-        if nix_lib_dirs:
-            os.environ["LD_LIBRARY_PATH"] = ":".join(nix_lib_dirs)
-        # Pre-load libraries by searching nix store for the actual .so files
         linux_libs = [
             "libglib-2.0.so*",
             "libgobject-2.0.so*",
@@ -83,13 +78,26 @@ def _ensure_weasyprint_libs() -> None:
             "libgdk_pixbuf-2.0.so*",
             "libffi.so*",
         ]
+        search_dirs = [
+            "/usr/lib/x86_64-linux-gnu",
+            "/usr/lib",
+            "/usr/lib64",
+        ]
+        nix_lib_dirs = glob_mod.glob("/nix/store/*/lib")
+        search_dirs.extend(nix_lib_dirs)
+        if nix_lib_dirs:
+            os.environ.setdefault(
+                "LD_LIBRARY_PATH", ":".join(nix_lib_dirs)
+            )
         for pattern in linux_libs:
-            matches = glob_mod.glob(f"/nix/store/*/lib/{pattern}")
-            if matches:
-                try:
-                    ctypes.cdll.LoadLibrary(matches[0])
-                except OSError:
-                    pass
+            for d in search_dirs:
+                matches = glob_mod.glob(f"{d}/{pattern}")
+                if matches:
+                    try:
+                        ctypes.cdll.LoadLibrary(matches[0])
+                    except OSError:
+                        pass
+                    break
 
 
 # Best-effort at import time (works for main thread / CLI usage)
