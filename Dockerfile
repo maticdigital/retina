@@ -25,6 +25,7 @@ COPY . .
 # Add src/ to Python path so retina package is importable
 ENV PYTHONPATH="/app/src:${PYTHONPATH}"
 
-EXPOSE 8000
+ENV PORT=8000
+EXPOSE ${PORT}
 
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD uvicorn api.main:app --host 0.0.0.0 --port ${PORT}
