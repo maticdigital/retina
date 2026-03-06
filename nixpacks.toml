@@ -17,4 +17,4 @@ nixPkgs = [
 cmds = ["pip install -r requirements.txt"]
 
 [start]
-cmd = "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+cmd = "export LD_LIBRARY_PATH=$(echo /nix/store/*/lib | tr ' ' ':'):$LD_LIBRARY_PATH && uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"
