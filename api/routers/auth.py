@@ -43,6 +43,20 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    found: bool
+    detail: str
+
+
+class ResetPasswordRequest(BaseModel):
+    access_token: str
+    new_password: str
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 
@@ -168,3 +182,69 @@ def change_password(body: ChangePasswordRequest, user: CurrentUser):
         )
 
     return {"detail": "Password changed successfully"}
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+def forgot_password(body: ForgotPasswordRequest):
+    """Request a password reset email.
+
+    If the email exists in the users table, sends a Supabase recovery
+    email.  If not, returns a message directing the user to contact
+    matic@maticdigital.com.  We intentionally reveal whether the email
+    exists since this is an internal analyst tool, not a public app.
+    """
+    sb = get_supabase()
+
+    # Check if email exists in our users table
+    resp = sb.table("users").select("id").eq("email", body.email).execute()
+    if not resp.data:
+        return ForgotPasswordResponse(
+            found=False,
+            detail="No account found for that email. Please contact matic@maticdigital.com for assistance.",
+        )
+
+    # Send recovery email via Supabase Auth
+    try:
+        client = get_supabase_anon()
+        client.auth.reset_password_for_email(body.email)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to send reset email: {e}"
+        ) from e
+
+    return ForgotPasswordResponse(
+        found=True,
+        detail="Password reset link sent. Check your email.",
+    )
+
+
+@router.post("/reset-password")
+def reset_password(body: ResetPasswordRequest):
+    """Set a new password using a recovery access token.
+
+    The frontend extracts the access_token from the Supabase redirect
+    hash fragment and sends it here.  We verify the token by fetching
+    the user, then update the password via the admin API.
+    """
+    # Verify the recovery token by fetching the user it belongs to
+    sb = get_supabase()
+    try:
+        user_resp = sb.auth.get_user(body.access_token)
+        user = user_resp.user
+        if not user:
+            raise ValueError("No user for token")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    # Update password via admin API
+    try:
+        sb.auth.admin.update_user_by_id(
+            str(user.id),
+            {"password": body.new_password},
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to update password: {e}"
+        ) from e
+
+    return {"detail": "Password updated successfully"}

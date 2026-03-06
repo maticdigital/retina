@@ -116,6 +116,30 @@ export async function changePassword(
   });
 }
 
+/* ── Password reset endpoints ─────────────────────────────────────────── */
+
+export interface ForgotPasswordResponse {
+  found: boolean;
+  detail: string;
+}
+
+export async function requestPasswordReset(email: string): Promise<ForgotPasswordResponse> {
+  return apiFetch<ForgotPasswordResponse>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(accessToken: string, newPassword: string): Promise<void> {
+  await apiFetch('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      access_token: accessToken,
+      new_password: newPassword,
+    }),
+  });
+}
+
 /* ── Project endpoints ─────────────────────────────────────────────────── */
 
 export interface ProjectOut {

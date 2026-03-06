@@ -1,28 +1,24 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
+import { requestPasswordReset } from '../api';
 import { color, font, space, radius } from '../tokens';
 
-export function Login() {
-  const navigate = useNavigate();
-  const { login, error } = useAuth();
+export function ForgotPassword() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [localError, setLocalError] = useState<string | null>(null);
-
-  const displayError = localError ?? error;
+  const [result, setResult] = useState<{ found: boolean; detail: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLocalError(null);
+    setError(null);
+    setResult(null);
     setSubmitting(true);
     try {
-      await login(email, password);
-      navigate('/');
+      const resp = await requestPasswordReset(email);
+      setResult(resp);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Login failed';
-      setLocalError(msg);
+      setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setSubmitting(false);
     }
@@ -45,42 +41,45 @@ export function Login() {
           </div>
         </div>
 
-        <h1 style={styles.heading}>Sign in to your account</h1>
+        <h1 style={styles.heading}>Reset your password</h1>
 
-        {/* Error banner */}
-        {displayError && <div style={styles.error}>{displayError}</div>}
+        {/* Success state */}
+        {result?.found && (
+          <div style={styles.success}>{result.detail}</div>
+        )}
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <label style={styles.label}>
-            Email
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              required
-              style={styles.input}
-            />
-          </label>
+        {/* Not-found state */}
+        {result && !result.found && (
+          <div style={styles.warning}>{result.detail}</div>
+        )}
 
-          <label style={styles.label}>
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              style={styles.input}
-            />
-          </label>
+        {/* Error */}
+        {error && <div style={styles.error}>{error}</div>}
 
-          <button type="submit" disabled={submitting} style={styles.button}>
-            {submitting ? 'Signing in…' : 'Sign In'}
-          </button>
-        </form>
+        {/* Only show form if we haven't gotten a success response */}
+        {!result?.found && (
+          <form onSubmit={handleSubmit} style={styles.form}>
+            <label style={styles.label}>
+              Email
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                required
+                style={styles.input}
+              />
+            </label>
 
-        <Link to="/forgot-password" style={styles.forgot}>Forgot password?</Link>
+            <button type="submit" disabled={submitting} style={styles.button}>
+              {submitting ? 'Sending…' : 'Send Reset Link'}
+            </button>
+          </form>
+        )}
+
+        <Link to="/login" style={styles.backLink}>
+          ← Back to sign in
+        </Link>
       </div>
     </div>
   );
@@ -133,6 +132,28 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: font.sizeMd,
     color: color.textMuted,
   },
+  success: {
+    width: '100%',
+    padding: space.sm,
+    marginBottom: space.md,
+    borderRadius: radius.md,
+    backgroundColor: '#DCFCE7',
+    color: '#166534',
+    fontFamily: font.family,
+    fontSize: font.sizeSm,
+    textAlign: 'center',
+  },
+  warning: {
+    width: '100%',
+    padding: space.sm,
+    marginBottom: space.md,
+    borderRadius: radius.md,
+    backgroundColor: '#FEF3C7',
+    color: '#92400E',
+    fontFamily: font.family,
+    fontSize: font.sizeSm,
+    textAlign: 'center',
+  },
   error: {
     width: '100%',
     padding: space.sm,
@@ -182,7 +203,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     transition: 'background-color 0.15s',
   },
-  forgot: {
+  backLink: {
     marginTop: space.md,
     fontFamily: font.family,
     fontSize: font.sizeSm,

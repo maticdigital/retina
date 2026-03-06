@@ -84,7 +84,19 @@ def _run_export(project_id: str, job_id: str):
             sys.path.insert(0, src_path)
 
         # WeasyPrint native lib path — set before any import of renderer
-        os.environ.setdefault("DYLD_LIBRARY_PATH", "/opt/homebrew/lib")
+        import platform
+        if platform.system() == "Darwin":
+            # macOS — Homebrew lib path
+            os.environ.setdefault("DYLD_LIBRARY_PATH", "/opt/homebrew/lib")
+        else:
+            # Linux (Railway/nixpacks) — nix store lib paths
+            # Nixpacks sets library paths, but ensure LD_LIBRARY_PATH is available
+            if not os.environ.get("LD_LIBRARY_PATH"):
+                # Search common nix store locations for libgobject
+                import glob as glob_mod
+                nix_libs = glob_mod.glob("/nix/store/*/lib")
+                if nix_libs:
+                    os.environ["LD_LIBRARY_PATH"] = ":".join(nix_libs)
 
         # Try to import heavy dependencies, fall back to lite versions
         try:
