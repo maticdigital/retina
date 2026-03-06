@@ -1072,12 +1072,11 @@ function ReportViewer({ data }: { data: SharedProjectData }) {
 
             {/* RIGHT COLUMN */}
             <div style={s.column}>
-              {/* Score Summary */}
+              {/* Retina Score */}
               <div style={s.card}>
-                <h2 style={s.cardTitle}>Score Summary</h2>
+                <h2 style={s.cardTitle}>Retina Score</h2>
                 <div style={{ display: 'flex', gap: space.lg, alignItems: 'flex-start' }} className={isMobile ? 'mobile-stack' : ''}>
                   <div style={{ textAlign: 'center' as const, ...(isMobile ? { alignSelf: 'center' } : {}) }}>
-                    <span style={{ fontFamily: font.family, fontSize: font.sizeSm, color: color.textMuted }}>Retina</span>
                     <ScoreDonut lensScores={project.lens_scores} retinaScore={project.retina_score} />
                   </div>
                   <div style={{ flex: 1 }}>

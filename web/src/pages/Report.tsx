@@ -977,12 +977,11 @@ export function Report() {
 
           {/* RIGHT COLUMN */}
           <div style={styles.column}>
-            {/* Card 3 — Score Summary */}
+            {/* Card 3 — Retina Score */}
             <div style={styles.card}>
-              <h2 style={styles.cardTitle}>Score Summary</h2>
+              <h2 style={styles.cardTitle}>Retina Score</h2>
               <div style={styles.scoreLayout} className={isMobile ? 'mobile-stack' : ''}>
                 <div style={{...styles.donutWrap, ...(isMobile ? { alignSelf: 'center' } : {})}}>
-                  <span style={styles.donutLabel}>Retina</span>
                   <ScoreDonut lensScores={summary.lens_scores} retinaScore={summary.retina_score} />
                 </div>
                 <div style={styles.lensScoreList}>
