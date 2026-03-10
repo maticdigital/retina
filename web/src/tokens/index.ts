@@ -13,10 +13,10 @@ export const color = {
   bgCard: '#FFFFFF',
   bgHover: '#EDF0F7',
 
-  /* Accent – purple from the reference screenshot */
-  accent: '#7B5CF0',
-  accentHover: '#6948DC',
-  accentLight: '#EDE8FF',
+  /* Accent */
+  accent: '#000227',
+  accentHover: '#076EFF',
+  accentLight: '#E8F0FF',
 
   /* Text */
   text: '#0A0A2E',

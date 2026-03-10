@@ -121,10 +121,31 @@ function cwvStatus(metric: string, value: number | null): StatusLevel {
     fcp: [1800, 3000],
     cls: [0.1, 0.25],
     tbt: [200, 600],
+    speed_index: [3400, 5800],
+    tti: [3800, 7300],
   };
   const t = thresholds[metric];
   if (!t) return 'warning';
   return value <= t[0] ? 'good' : value <= t[1] ? 'warning' : 'poor';
+}
+
+const STATUS_LABELS: Record<StatusLevel, string> = { good: 'Good', warning: 'Needs Work', poor: 'Poor' };
+
+function statusBadge(level: StatusLevel): React.CSSProperties {
+  const colors = { good: '#22C55E', warning: '#F59E0B', poor: '#EF4444' };
+  const bgColors = { good: '#F0FDF4', warning: '#FFFBEB', poor: '#FEF2F2' };
+  return {
+    display: 'inline-block',
+    padding: `1px ${space.xs}`,
+    borderRadius: radius.pill,
+    backgroundColor: bgColors[level],
+    color: colors[level],
+    fontFamily: font.family,
+    fontSize: '0.65rem',
+    fontWeight: font.weightSemibold,
+    marginLeft: 'auto',
+    flexShrink: 0,
+  };
 }
 
 function lighthouseScoreColor(score: number): string {
@@ -332,6 +353,7 @@ function scoreInterpretation(score: number): string {
 
 function PerformanceSection({ data }: { data: LensDetailData }) {
   const [techDetailsOpen, setTechDetailsOpen] = useState(false);
+  const [fullTechOpen, setFullTechOpen] = useState(false);
   const mobile = data.lighthouse_data.mobile || {};
   const desktop = data.lighthouse_data.desktop || {};
   const cwv = mobile.core_web_vitals || {};
@@ -339,22 +361,69 @@ function PerformanceSection({ data }: { data: LensDetailData }) {
   const lhScores = mobile.lighthouse_scores || {};
   const lensColor = data.lens_color;
 
-  // Tech stack by tag
+  // Tech stack grouping — mirrors backend TECH_CATEGORY_MAP + TECH_NAME_OVERRIDES
   const techs = data.builtwith_data.technologies || [];
-  const TAG_LABELS: Record<string, string> = {
-    cms: 'CMS', framework: 'Framework', analytics: 'Analytics', cdn: 'CDN',
-    cdns: 'CDN', hosting: 'Hosting', javascript: 'JavaScript', ssl: 'SSL',
-    widgets: 'Widgets', mx: 'Email', ns: 'DNS', ads: 'Advertising',
-    mobile: 'Mobile', payment: 'Payment', robots: 'Robots / AI',
-    link: 'Social Links',
+
+  // Name-based overrides (highest priority)
+  const TECH_NAME_OVERRIDES: Record<string, string> = {
+    'Webflow': 'CMS', 'WordPress': 'CMS', 'Contentful': 'CMS',
+    'Shopify': 'CMS', 'Squarespace': 'CMS', 'Drupal': 'CMS',
+    'Wix': 'CMS', 'Ghost': 'CMS', 'Joomla': 'CMS',
+    'HubSpot CMS': 'CMS', 'HubSpot CMS Hub': 'CMS',
+    'HubSpot': 'CRM / Marketing', 'Salesforce': 'CRM / Marketing',
+    'Marketo': 'CRM / Marketing', 'Pardot': 'CRM / Marketing',
+    'ActiveCampaign': 'CRM / Marketing',
+    'Google Analytics': 'Analytics', 'Google Tag Manager': 'Analytics',
+    'Hotjar': 'Analytics', 'Segment': 'Analytics',
+    'Elementor': 'Framework', 'Divi': 'Framework',
   };
+
+  // Category-based mapping (from BuiltWith categories[] array)
+  const CATEGORY_MAP: Record<string, string> = {
+    'CMS': 'CMS', 'Hosted Solution': 'CMS', 'Headless': 'CMS', 'Enterprise': 'CMS',
+    'Blog': 'CMS', 'Ecommerce': 'CMS', 'Wiki': 'CMS',
+    'JavaScript Frameworks': 'Framework', 'Web Frameworks': 'Framework',
+    'CDN': 'CDN',
+    'CRM': 'CRM / Marketing', 'Marketing Automation': 'CRM / Marketing',
+    'Feedback Forms and Surveys': 'CRM / Marketing', 'Transactional Email': 'CRM / Marketing',
+    'Audience Measurement': 'Analytics', 'Visitor Count Tracking': 'Analytics',
+    'Tag Management': 'Analytics', 'Analytics': 'Analytics',
+    'Hosting': 'Hosting', 'Web Hosting': 'Hosting',
+    'DNS': 'DNS', 'Email': 'Email', 'Email Hosting': 'Email',
+    'Advertising': 'Advertising', 'JavaScript': 'JavaScript',
+    'Mobile': 'Mobile', 'SSL': 'SSL', 'Payment': 'Payment',
+  };
+
+  // Tag-based fallback (raw BuiltWith tag field)
+  const TAG_FALLBACK: Record<string, string> = {
+    cms: 'CMS', framework: 'Framework', cdn: 'CDN', cdns: 'CDN',
+    analytics: 'Analytics', hosting: 'Hosting', javascript: 'JavaScript',
+    ssl: 'SSL', widgets: 'Widgets', mx: 'Email', ns: 'DNS',
+    ads: 'Advertising', mobile: 'Mobile', payment: 'Payment',
+    robots: 'Robots / AI', link: 'Social Links',
+    crm: 'CRM / Marketing', 'marketing-automation': 'CRM / Marketing',
+  };
+
   const groups: Record<string, string[]> = {};
   for (const t of techs) {
-    const tag = t.tag || 'other';
-    const label = TAG_LABELS[tag];
-    if (!label) continue;
-    groups[label] = groups[label] || [];
-    groups[label].push(t.name);
+    // 1) Check name override
+    let group = TECH_NAME_OVERRIDES[t.name];
+    // 2) Check categories array
+    if (!group && t.categories) {
+      for (const cat of t.categories) {
+        group = CATEGORY_MAP[cat];
+        if (group) break;
+      }
+    }
+    // 3) Fall back to tag field
+    if (!group && t.tag) {
+      group = TAG_FALLBACK[t.tag];
+    }
+    if (!group) group = 'Other';
+    groups[group] = groups[group] || [];
+    if (!groups[group].includes(t.name)) {
+      groups[group].push(t.name);
+    }
   }
 
   // Interpretation
@@ -406,88 +475,173 @@ function PerformanceSection({ data }: { data: LensDetailData }) {
     { key: 'tbt', label: 'Total Blocking Time', techLabel: 'TBT', value: cwv.total_blocking_time_ms ?? null, desktopValue: desktopCwv.total_blocking_time_ms ?? null, format: formatMs, thresholdKey: 'tbt', explanation: 'Total time the page is unresponsive to user input. Under 200ms is good.' },
   ];
 
+  // Generate impact headline
+  const mobileLcp = cwv.largest_contentful_paint_ms ?? null;
+  const desktopLcp = desktopCwv.largest_contentful_paint_ms ?? null;
+  const mobileLcpS = mobileLcp !== null ? mobileLcp / 1000 : null;
+  const desktopLcpS = desktopLcp !== null ? desktopLcp / 1000 : null;
+
+  let impactHeadline = '';
+  if (mobileLcpS !== null && desktopLcpS !== null) {
+    if (mobileLcpS > 3 && desktopLcpS < 2) {
+      impactHeadline = `Your site loads well on desktop but is significantly slower on mobile — a gap that affects roughly half of visitors and likely impacts bounce rate and conversions.`;
+    } else if (mobileLcpS > 4 && desktopLcpS > 4) {
+      impactHeadline = 'Site speed is a meaningful challenge on both desktop and mobile, with load times that exceed recommended thresholds for visitor retention.';
+    } else if (mobileLcpS > 4) {
+      impactHeadline = `Mobile visitors wait ${mobileLcpS.toFixed(1)}s for content — well above Google's 2.5s threshold for a good experience, which likely increases bounce rate.`;
+    } else if (mobileLcpS <= 2.5 && desktopLcpS <= 2.5) {
+      impactHeadline = "Your site loads quickly on both desktop and mobile, meeting Google's Core Web Vitals thresholds — a strong technical foundation.";
+    } else {
+      impactHeadline = `Desktop loads in ${desktopLcpS.toFixed(1)}s and mobile in ${mobileLcpS.toFixed(1)}s — ${mobileLcpS <= 2.5 ? 'both within acceptable range.' : 'mobile could be faster to improve visitor experience.'}`;
+    }
+  } else if (mobileLcpS !== null) {
+    impactHeadline = mobileLcpS <= 2.5
+      ? "Your site meets Google's Core Web Vitals speed thresholds — a strong technical foundation."
+      : `Mobile load time of ${mobileLcpS.toFixed(1)}s exceeds Google's 2.5s threshold — visitors may leave before content appears.`;
+  }
+
   return (
     <>
-      {/* ── TOP ROW: Headline Score Cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: space.md, marginTop: space.md }}>
-        {headlineScores.map((cat) => {
-          const score = Math.round(lhScores[cat.key] ?? 0);
-          const bg = lighthouseScoreColor(score);
-          const interp = scoreInterpretation(score);
-          return (
-            <div key={cat.key} style={{
-              backgroundColor: color.bgCard,
-              borderRadius: radius.xl,
-              padding: space.lg,
-              boxShadow: color.shadow,
-              textAlign: 'center' as const,
-              borderTop: `3px solid ${bg}`,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: space.xs, marginBottom: space.sm }}>
-                <span style={{ fontFamily: font.family, fontSize: font.sizeSm, fontWeight: font.weightSemibold, color: color.text }}>{cat.label}</span>
-                <Tooltip text={cat.tooltip} />
-              </div>
-              <div style={{
-                fontFamily: font.family,
-                fontSize: '2.5rem',
-                fontWeight: font.weightBold,
-                color: bg,
-                lineHeight: 1,
-              }}>
-                {score}
-              </div>
-              <div style={{ fontFamily: font.family, fontSize: font.sizeXs, color: color.textMuted, marginTop: space.xs }}>
-                {interp}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {/* ── Impact Headline ── */}
+      {impactHeadline && (
+        <div style={{
+          backgroundColor: color.bgCard,
+          borderRadius: radius.xl,
+          padding: `${space.md} ${space.lg}`,
+          boxShadow: color.shadow,
+          marginTop: space.md,
+          borderLeft: `4px solid ${lensColor}`,
+        }}>
+          <p style={{
+            margin: 0,
+            fontFamily: font.family,
+            fontSize: font.sizeMd,
+            color: color.text,
+            lineHeight: 1.6,
+          }}>
+            {impactHeadline}
+          </p>
+        </div>
+      )}
 
       {/* ── SECTION 1: Site Speed Overview ── */}
       <h3 style={styles.sectionTitle}>Site Speed Overview</h3>
       <div style={{ ...styles.metricGrid, gridTemplateColumns: '1fr 1fr 1fr' }}>
         {/* Desktop Load Time */}
-        <div style={styles.metricCard}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
-            <span style={statusDot(cwvStatus('lcp', desktopCwv.largest_contentful_paint_ms ?? null))} />
-            <span style={styles.metricLabel}>Desktop Load Time</span>
-          </div>
-          <div style={styles.metricValue}>{formatMs(desktopCwv.largest_contentful_paint_ms ?? null)}</div>
-          <p style={styles.metricInterpretation}>How quickly the main content loads on desktop devices</p>
-        </div>
+        {(() => {
+          const val = desktopCwv.largest_contentful_paint_ms ?? null;
+          const level = cwvStatus('lcp', val);
+          const valS = val !== null ? (val / 1000).toFixed(1) : null;
+          return (
+            <div style={styles.metricCard}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
+                <span style={statusDot(level)} />
+                <span style={styles.metricLabel}>Desktop Load Time</span>
+                <span style={statusBadge(level)}>{STATUS_LABELS[level]}</span>
+              </div>
+              <div style={styles.metricValue}>{formatMs(val)}</div>
+              <p style={styles.metricInterpretation}>
+                {level === 'good'
+                  ? "Content loads quickly, meeting Google's recommended threshold and giving visitors a strong first impression."
+                  : level === 'warning'
+                  ? `At ${valS}s, desktop content loads within an acceptable range but could be faster — Google's threshold for "good" is under 2.5s.`
+                  : `At ${valS}s, most visitors see a blank or incomplete page for longer than recommended — Google's threshold for "good" is under 2.5s.`}
+              </p>
+            </div>
+          );
+        })()}
         {/* Mobile Load Time */}
-        <div style={styles.metricCard}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
-            <span style={statusDot(cwvStatus('lcp', cwv.largest_contentful_paint_ms ?? null))} />
-            <span style={styles.metricLabel}>Mobile Load Time</span>
-          </div>
-          <div style={styles.metricValue}>{formatMs(cwv.largest_contentful_paint_ms ?? null)}</div>
-          <p style={styles.metricInterpretation}>How quickly the main content loads on mobile devices</p>
-        </div>
+        {(() => {
+          const val = cwv.largest_contentful_paint_ms ?? null;
+          const level = cwvStatus('lcp', val);
+          const valS = val !== null ? (val / 1000).toFixed(1) : null;
+          const dVal = desktopCwv.largest_contentful_paint_ms ?? null;
+          const dLevel = cwvStatus('lcp', dVal);
+          return (
+            <div style={styles.metricCard}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
+                <span style={statusDot(level)} />
+                <span style={styles.metricLabel}>Mobile Load Time</span>
+                <span style={statusBadge(level)}>{STATUS_LABELS[level]}</span>
+              </div>
+              <div style={styles.metricValue}>{formatMs(val)}</div>
+              <p style={styles.metricInterpretation}>
+                {level === 'good'
+                  ? "Mobile content loads quickly, meeting Google's recommended 2.5s threshold."
+                  : level !== 'good' && dLevel === 'good'
+                  ? `Desktop experience is fast, but mobile visitors — typically ~50% of traffic — wait ${valS}s before content is fully visible.`
+                  : `At ${valS}s, mobile visitors see a blank or incomplete page for longer than recommended — Google's threshold for "good" is under 2.5s.`}
+              </p>
+            </div>
+          );
+        })()}
         {/* Time to Interactive */}
-        <div style={styles.metricCard}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
-            <span style={statusDot(cwvStatus('tbt', cwv.total_blocking_time_ms ?? null))} />
-            <span style={styles.metricLabel}>Time to Interactive</span>
-          </div>
-          <div style={styles.metricValue}>{formatMs(cwv.total_blocking_time_ms ?? null)}</div>
-          <p style={styles.metricInterpretation}>How long before visitors can click, scroll, and interact</p>
-        </div>
+        {(() => {
+          const val = cwv.total_blocking_time_ms ?? null;
+          const level = cwvStatus('tbt', val);
+          const valMs = val !== null ? Math.round(val) : null;
+          return (
+            <div style={styles.metricCard}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
+                <span style={statusDot(level)} />
+                <span style={styles.metricLabel}>Time to Interactive</span>
+                <span style={statusBadge(level)}>{STATUS_LABELS[level]}</span>
+              </div>
+              <div style={styles.metricValue}>{formatMs(val)}</div>
+              <p style={styles.metricInterpretation}>
+                {level === 'good'
+                  ? `Visitors can interact with the page almost immediately — the ${valMs}ms blocking time is well within the recommended 200ms threshold.`
+                  : level === 'warning'
+                  ? `The page is unresponsive for ${valMs}ms during load — noticeable but not critical. Under 200ms is the recommended threshold.`
+                  : `The page is unresponsive for ${valMs}ms during load — visitors may try to click or scroll before the page responds. Under 200ms is recommended.`}
+              </p>
+            </div>
+          );
+        })()}
       </div>
       {/* Speed Index row */}
       {(cwv.speed_index_ms || desktopCwv.speed_index_ms) && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: space.md, marginTop: space.md }}>
-          <div style={styles.metricCard}>
-            <span style={styles.metricLabel}>Desktop Speed Index</span>
-            <div style={styles.metricValue}>{formatMs(desktopCwv.speed_index_ms ?? null)}</div>
-            <p style={styles.metricInterpretation}>How quickly visible content populates the page on desktop</p>
-          </div>
-          <div style={styles.metricCard}>
-            <span style={styles.metricLabel}>Mobile Speed Index</span>
-            <div style={styles.metricValue}>{formatMs(cwv.speed_index_ms ?? null)}</div>
-            <p style={styles.metricInterpretation}>How quickly visible content populates the page on mobile</p>
-          </div>
+          {(() => {
+            const val = desktopCwv.speed_index_ms ?? null;
+            const level = cwvStatus('speed_index', val);
+            const valS = val !== null ? (val / 1000).toFixed(1) : null;
+            return (
+              <div style={styles.metricCard}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
+                  <span style={statusDot(level)} />
+                  <span style={styles.metricLabel}>Desktop Speed Index</span>
+                  <span style={statusBadge(level)}>{STATUS_LABELS[level]}</span>
+                </div>
+                <div style={styles.metricValue}>{formatMs(val)}</div>
+                <p style={styles.metricInterpretation}>
+                  {level === 'good'
+                    ? `Visible content appears within ${valS}s on desktop — the page feels fast and responsive.`
+                    : `On average, visible content appears within ${valS}s on desktop — ${level === 'warning' ? 'acceptable but could be snappier' : 'slower than the 3.4s threshold for a fast experience'}.`}
+                </p>
+              </div>
+            );
+          })()}
+          {(() => {
+            const val = cwv.speed_index_ms ?? null;
+            const level = cwvStatus('speed_index', val);
+            const valS = val !== null ? (val / 1000).toFixed(1) : null;
+            return (
+              <div style={styles.metricCard}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.xs }}>
+                  <span style={statusDot(level)} />
+                  <span style={styles.metricLabel}>Mobile Speed Index</span>
+                  <span style={statusBadge(level)}>{STATUS_LABELS[level]}</span>
+                </div>
+                <div style={styles.metricValue}>{formatMs(val)}</div>
+                <p style={styles.metricInterpretation}>
+                  {level === 'good'
+                    ? `Visible content appears within ${valS}s on mobile — the page feels fast and responsive.`
+                    : `On average, visible content appears within ${valS}s on mobile — ${level === 'warning' ? 'acceptable but could be snappier' : 'slower than the 3.4s threshold for a fast experience'}.`}
+                </p>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -583,6 +737,28 @@ function PerformanceSection({ data }: { data: LensDetailData }) {
         </button>
         {techDetailsOpen && (
           <div style={{ marginTop: space.md }}>
+            {/* Lighthouse Category Scores */}
+            <p style={{ fontFamily: font.family, fontSize: font.sizeXs, fontWeight: font.weightSemibold, color: color.text, margin: `0 0 ${space.sm} 0` }}>
+              Lighthouse Category Scores
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: space.sm, marginBottom: space.lg }}>
+              {headlineScores.map((cat) => {
+                const score = Math.round(lhScores[cat.key] ?? 0);
+                const bg = lighthouseScoreColor(score);
+                return (
+                  <div key={cat.key} style={{
+                    backgroundColor: color.bgPage,
+                    borderRadius: radius.lg,
+                    padding: space.sm,
+                    textAlign: 'center' as const,
+                    borderTop: `2px solid ${bg}`,
+                  }}>
+                    <div style={{ fontFamily: font.family, fontSize: font.sizeXs, color: color.textMuted, marginBottom: space.xxs }}>{cat.label}</div>
+                    <div style={{ fontFamily: font.family, fontSize: font.sizeLg, fontWeight: font.weightBold, color: bg }}>{score}</div>
+                  </div>
+                );
+              })}
+            </div>
             <p style={{ fontFamily: font.family, fontSize: font.sizeXs, color: color.textMuted, margin: `0 0 ${space.md} 0` }}>
               These are the raw Core Web Vitals metrics used by Google to evaluate page experience. They are included here for technical reference.
             </p>
@@ -614,26 +790,196 @@ function PerformanceSection({ data }: { data: LensDetailData }) {
       </div>
 
       {/* Technology Stack */}
-      {Object.keys(groups).length > 0 && (
-        <>
-          <h3 style={styles.sectionTitle}>Technology Stack</h3>
-          <div style={styles.card}>
-            {Object.entries(groups).map(([label, names], i, arr) => (
-              <div key={label} style={{
-                ...styles.techRow,
-                ...(i === arr.length - 1 ? { borderBottom: 'none' } : {}),
-              }}>
-                <span style={styles.techLabel}>{label}</span>
-                <div style={styles.techTags}>
-                  {names.map((name) => (
-                    <span key={name} style={styles.techTag}>{name}</span>
-                  ))}
-                </div>
+      {(() => {
+        const PRIORITY_ORDER = ['CMS', 'Framework', 'CDN', 'CRM / Marketing'];
+        const priorityEntries: [string, string[]][] = [];
+        const otherEntries: [string, string[]][] = [];
+        for (const label of PRIORITY_ORDER) {
+          if (groups[label]) priorityEntries.push([label, groups[label]]);
+        }
+        for (const [label, names] of Object.entries(groups)) {
+          if (!PRIORITY_ORDER.includes(label)) otherEntries.push([label, names]);
+        }
+
+        // Also check if Elementor/Divi are in Framework but should inform CMS interpretation
+        const allTechNames = techs.map(t => t.name.toLowerCase());
+        const hasElementor = allTechNames.some(n => n.includes('elementor'));
+        const hasDivi = allTechNames.some(n => n.includes('divi'));
+
+        // Tech interpretation helper — expanded copy per spec
+        const getTechInterpretation = (label: string, names: string[]): string | null => {
+          const lower = names.map(n => n.toLowerCase());
+          if (label === 'CMS') {
+            if (lower.some(n => n.includes('wordpress')) && hasElementor)
+              return 'WordPress with Elementor page builder — capable stack, though Elementor adds code weight that can impact load performance.';
+            if (lower.some(n => n.includes('wordpress')) && hasDivi)
+              return 'WordPress with Divi builder — popular but known to produce heavier page output than modern alternatives.';
+            if (lower.some(n => n.includes('wordpress')))
+              return 'WordPress — the world\'s most common CMS, highly extensible and well-supported.';
+            if (lower.some(n => n.includes('webflow')))
+              return 'Webflow — a modern, design-forward platform with clean code output and strong hosting performance.';
+            if (lower.some(n => n.includes('squarespace')))
+              return 'Squarespace — an all-in-one platform that\'s easy to manage but offers limited customization and performance control.';
+            if (lower.some(n => n.includes('drupal')))
+              return 'Drupal — a powerful, developer-oriented CMS suited for complex content architectures.';
+            if (lower.some(n => n.includes('shopify')))
+              return 'Shopify — a leading e-commerce platform with built-in payment and fulfillment infrastructure.';
+            if (lower.some(n => n.includes('hubspot')))
+              return 'HubSpot CMS — tightly integrated with HubSpot marketing tools, purpose-built for inbound marketing sites.';
+            if (lower.some(n => n.includes('contentful')))
+              return 'Contentful — a headless CMS, typically paired with a custom frontend for high-performance delivery.';
+            if (lower.some(n => n.includes('wix')))
+              return 'Wix — a drag-and-drop site builder with simple management but limited performance optimization options.';
+            if (lower.some(n => n.includes('ghost')))
+              return 'Ghost — a modern, lightweight CMS focused on publishing and content-driven sites.';
+            // Generic fallback
+            return `${names[0]} detected as the content management platform.`;
+          }
+          if (label === 'Framework') {
+            if (lower.some(n => n.includes('next')))
+              return 'React/Next.js — a modern JavaScript framework associated with fast, app-like web experiences.';
+            if (lower.some(n => n.includes('react')))
+              return 'React — a widely-adopted frontend library. Performance depends heavily on implementation quality.';
+            if (lower.some(n => n.includes('vue') || n.includes('nuxt')))
+              return 'Vue/Nuxt — a modern frontend framework known for clean performance and developer flexibility.';
+            if (lower.some(n => n.includes('elementor')))
+              return 'Elementor page builder detected — adds visual editing capability but can increase page weight.';
+            if (lower.some(n => n.includes('divi')))
+              return 'Divi builder detected — a visual page builder that can add significant code overhead.';
+            return null;
+          }
+          if (label === 'CDN') {
+            if (lower.some(n => n.includes('cloudflare')))
+              return 'Cloudflare CDN — a leading content delivery network that improves global load speed and adds security.';
+            if (lower.some(n => n.includes('fastly')))
+              return 'Fastly — enterprise-grade CDN optimized for performance and real-time content delivery.';
+            if (lower.some(n => n.includes('cloudfront')))
+              return 'AWS CloudFront — Amazon\'s CDN, commonly used for high-availability and global content delivery.';
+            if (lower.some(n => n.includes('akamai')))
+              return 'Akamai — one of the largest CDN providers, widely used for enterprise-grade delivery.';
+            return 'CDN detected — content is delivered from distributed servers globally, reducing load times for distant visitors.';
+          }
+          if (label === 'CRM / Marketing') {
+            if (lower.some(n => n.includes('hubspot')))
+              return 'HubSpot detected — CRM and marketing automation are integrated into the site stack.';
+            if (lower.some(n => n.includes('salesforce') || n.includes('pardot')))
+              return 'Salesforce/Pardot detected — enterprise CRM and marketing automation in use.';
+            if (lower.some(n => n.includes('marketo')))
+              return 'Marketo detected — marketing automation platform integrated with the site.';
+            if (lower.some(n => n.includes('activecampaign')))
+              return 'ActiveCampaign detected — email marketing and automation platform connected to this site.';
+            return null;
+          }
+          return null;
+        };
+
+        const missingCdn = !groups['CDN'];
+        const hasPriorityData = priorityEntries.length > 0 || missingCdn;
+        const hasAnyData = techs.length > 0;
+
+        return (
+          <>
+            <h3 style={styles.sectionTitle}>Technology Stack</h3>
+            {!hasAnyData ? (
+              <div style={styles.card}>
+                <p style={{ fontFamily: font.family, fontSize: font.sizeSm, color: color.textMuted, margin: 0 }}>
+                  Technology stack could not be detected for this site.
+                </p>
               </div>
-            ))}
-          </div>
-        </>
-      )}
+            ) : (
+              <>
+                <div style={styles.card}>
+                  {hasPriorityData ? (
+                    <>
+                      {priorityEntries.map(([label, names], i, arr) => {
+                        const interp = getTechInterpretation(label, names);
+                        const isLast = i === arr.length - 1 && !missingCdn;
+                        return (
+                          <div key={label} style={{
+                            ...styles.techRow,
+                            ...(isLast ? { borderBottom: 'none' } : {}),
+                          }}>
+                            <span style={styles.techLabel}>{label}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={styles.techTags}>
+                                {names.map((name) => (
+                                  <span key={name} style={styles.techTag}>{name}</span>
+                                ))}
+                              </div>
+                              {interp && (
+                                <p style={{ margin: `${space.xxs} 0 0 0`, fontFamily: font.family, fontSize: font.sizeXs, color: color.textMuted, lineHeight: 1.4 }}>
+                                  {interp}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {missingCdn && (
+                        <div style={{ ...styles.techRow, borderBottom: 'none' }}>
+                          <span style={styles.techLabel}>CDN</span>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontFamily: font.family, fontSize: font.sizeXs, color: '#F59E0B', fontStyle: 'italic' }}>Not detected</span>
+                            <p style={{ margin: `${space.xxs} 0 0 0`, fontFamily: font.family, fontSize: font.sizeXs, color: '#F59E0B', lineHeight: 1.4 }}>
+                              No CDN detected — content is served from a single origin server, which may increase load times for geographically distant visitors.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p style={{ fontFamily: font.family, fontSize: font.sizeSm, color: color.textMuted, margin: 0 }}>
+                      No CMS, framework, CDN, or marketing platform was identified. See full technology list below.
+                    </p>
+                  )}
+                </div>
+                {/* Full Technology Stack (collapsed) */}
+                {otherEntries.length > 0 && (
+                  <div style={{ marginTop: space.sm }}>
+                    <button
+                      onClick={() => setFullTechOpen(prev => !prev)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: space.sm,
+                        background: 'none',
+                        border: `1px solid ${color.border}`,
+                        borderRadius: radius.lg,
+                        padding: `${space.xs} ${space.md}`,
+                        cursor: 'pointer',
+                        fontFamily: font.family,
+                        fontSize: font.sizeXs,
+                        fontWeight: font.weightMedium,
+                        color: color.textMuted,
+                        width: 'auto',
+                      }}
+                    >
+                      {fullTechOpen ? '▲ Hide' : '▼ Show'} Full Technology Stack ({otherEntries.reduce((sum, [, n]) => sum + n.length, 0)} more)
+                    </button>
+                    {fullTechOpen && (
+                      <div style={{ ...styles.card, marginTop: space.sm }}>
+                        {otherEntries.map(([label, names], i, arr) => (
+                          <div key={label} style={{
+                            ...styles.techRow,
+                            ...(i === arr.length - 1 ? { borderBottom: 'none' } : {}),
+                          }}>
+                            <span style={styles.techLabel}>{label}</span>
+                            <div style={styles.techTags}>
+                              {names.map((name) => (
+                                <span key={name} style={styles.techTag}>{name}</span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        );
+      })()}
 
       {/* Observations & Findings */}
       {narrative && (
@@ -649,9 +995,26 @@ function PerformanceSection({ data }: { data: LensDetailData }) {
   );
 }
 
+/* ── SEO Impact Labels ────────────────────────────── */
+
+const SEO_IMPACT_LABELS: Record<string, string> = {
+  'meta-description': 'Controls your search result preview text',
+  'document-title': 'Your page\'s name in search results — most important SEO tag',
+  'image-alt': 'Helps search engines index your visuals; also improves accessibility',
+  'robots-txt': 'Tells search engines and AI crawlers how to access your site',
+  'canonical': 'Prevents duplicate content penalties across similar pages',
+  'hreflang': 'Signals language/region targeting to international search engines',
+  'structured-data': 'Enables rich results and makes content citable by AI tools',
+  'crawlable-anchors': 'Ensures search engines can discover and index your pages',
+  'link-text': 'Helps search engines understand your page relationships',
+  'is-crawlable': 'Confirms search engines are allowed to index this page',
+  'http-status-code': 'Confirms the page is live and accessible to crawlers',
+};
+
 /* ── SEO & AI Visibility ──────────────────────────── */
 
 function SeoSection({ data }: { data: LensDetailData }) {
+  const [showPassing, setShowPassing] = useState(false);
   const mobile = data.lighthouse_data.mobile || {};
   const audits = mobile.audits || [];
   const lensColor = data.lens_color;
@@ -675,61 +1038,254 @@ function SeoSection({ data }: { data: LensDetailData }) {
     if (!seen.has(a.id)) ordered.push(a);
   }
 
+  // Remove structured-data from SEO health checks — it's covered better in AI Visibility
+  const filtered = ordered.filter(a => a.id !== 'structured-data');
+
+  // Split into tiers
+  const failed = filtered.filter(a => a.score !== null && a.score < 1);
+  const passed = filtered.filter(a => a.score === 1);
+  const notEvaluated = filtered.filter(a => a.score === null);
+
   // SEO interpretation
   const seoInterp = data.interpretations.seo as Record<string, unknown> | undefined;
   const narrative = seoInterp?.section_narrative as string | undefined;
   const auditInterps = seoInterp?.audits as Record<string, { what?: string; why?: string }> | undefined;
 
+  // Render a single audit row
+  const renderAuditRow = (audit: typeof ordered[0], i: number, arr: typeof ordered, tier: 'failed' | 'passed' | 'na') => {
+    const isPassed = tier === 'passed';
+    const isNA = tier === 'na';
+    const impactLabel = SEO_IMPACT_LABELS[audit.id];
+    return (
+      <div key={audit.id} style={{
+        ...styles.auditRow,
+        ...(tier === 'failed' ? { backgroundColor: '#FEF2F2' } : {}),
+        ...(i === arr.length - 1 ? { borderBottom: 'none' } : {}),
+      }}>
+        <span style={{ fontSize: '1rem', flexShrink: 0, width: 24, textAlign: 'center' }}>
+          {isNA ? '—' : isPassed ? '✅' : '❌'}
+        </span>
+        <div style={{ flex: 1 }}>
+          <span style={{
+            ...styles.auditName,
+            fontWeight: tier === 'failed' ? font.weightBold : font.weightMedium,
+          }}>{audit.title}</span>
+          {impactLabel && (
+            <span style={{
+              display: 'inline-block',
+              marginLeft: space.xs,
+              padding: `0 ${space.xs}`,
+              borderRadius: radius.pill,
+              backgroundColor: isPassed ? '#F0FDF4' : tier === 'failed' ? '#FEF2F2' : color.bgPage,
+              color: isPassed ? '#16A34A' : tier === 'failed' ? '#DC2626' : color.textMuted,
+              fontFamily: font.family,
+              fontSize: '0.65rem',
+              fontWeight: font.weightMedium,
+              verticalAlign: 'middle',
+            }}>
+              {impactLabel}
+            </span>
+          )}
+          {/* 2.1 FIX: Show full description without truncation */}
+          {audit.description && (
+            <p style={styles.auditDesc}>
+              {audit.description.replace(/\[.*?\]\(.*?\)/g, '').trim()}
+            </p>
+          )}
+          {isNA && (
+            <p style={{ ...styles.auditDesc, fontStyle: 'italic' }}>Could not be evaluated for this page</p>
+          )}
+          {/* Show AI insight for failed audits */}
+          {tier === 'failed' && auditInterps?.[audit.id]?.what && (
+            <p style={styles.auditInsight}>{auditInterps[audit.id].what}</p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // AI Visibility findings derived from audit data
+  const robotsAudit = ordered.find(a => a.id === 'robots-txt');
+  const structuredDataAudit = ordered.find(a => a.id === 'structured-data');
+  const metaDescAudit = ordered.find(a => a.id === 'meta-description');
+  const imageAltAudit = ordered.find(a => a.id === 'image-alt');
+
+  const aiFindings: { label: string; status: StatusLevel; interpretation: string }[] = [];
+
+  // 1. robots.txt
+  if (robotsAudit) {
+    const robotsPass = robotsAudit.score === 1;
+    aiFindings.push({
+      label: 'robots.txt',
+      status: robotsPass ? 'good' : 'poor',
+      interpretation: robotsPass
+        ? 'robots.txt is present and valid — crawlers including AI indexing bots can access your site.'
+        : 'No valid robots.txt found — search engines and AI crawlers have no guidance on how to access your site.',
+    });
+  }
+
+  // 2. Structured Data — handle score=1 (pass), score<1 (fail), score=null (not evaluated / likely absent)
+  if (structuredDataAudit) {
+    const sdPass = structuredDataAudit.score === 1;
+    const sdNull = structuredDataAudit.score === null;
+    aiFindings.push({
+      label: 'Structured Data',
+      status: sdPass ? 'good' : 'poor',
+      interpretation: sdPass
+        ? 'Structured data is present — schema markup helps AI tools understand what your site is and what it offers, making it more likely to be cited in AI-generated responses.'
+        : sdNull
+        ? 'No structured data could be detected on this page — without schema markup, AI tools have limited ability to understand and cite your site\'s content accurately. Verify using Google\'s Rich Results Test.'
+        : 'No structured data detected — without schema markup, AI tools have limited ability to understand and cite your site\'s content accurately.',
+    });
+  }
+
+  // 3. Meta Descriptions
+  if (metaDescAudit) {
+    const mdPass = metaDescAudit.score === 1;
+    aiFindings.push({
+      label: 'Meta Descriptions',
+      status: mdPass ? 'good' : 'poor',
+      interpretation: mdPass
+        ? 'Meta descriptions are present — these serve as the primary text AI tools use when summarizing or referencing your site.'
+        : 'Missing meta descriptions — AI tools may generate their own inaccurate summaries of your site\'s pages.',
+    });
+  }
+
+  // 4. Image Alt Text
+  if (imageAltAudit) {
+    const iaPass = imageAltAudit.score === 1;
+    aiFindings.push({
+      label: 'Image Alt Text',
+      status: iaPass ? 'good' : 'warning',
+      interpretation: iaPass
+        ? 'Images have descriptive alt text — visual content is accessible to both screen readers and AI crawlers.'
+        : 'Images lack alt text — AI tools cannot index or cite visual content on your site.',
+    });
+  }
+
   return (
     <>
       {/* SEO Health Checks */}
       <h3 style={styles.sectionTitle}>SEO Health Checks</h3>
-      <div style={styles.card}>
-        {ordered.length === 0 ? (
-          <p style={{ ...styles.interpText, color: color.textMuted }}>No SEO audits available</p>
-        ) : (
-          ordered.map((audit, i) => {
-            const passed = audit.score === 1 || audit.score === null;
-            const isCriticalFail = !passed && (audit.id === 'robots-txt' || audit.id === 'meta-description' || audit.id === 'is-crawlable');
-            return (
-              <div key={audit.id} style={{
-                ...styles.auditRow,
-                ...(isCriticalFail ? { backgroundColor: '#FEF3C7' } : {}),
-                ...(i === ordered.length - 1 ? { borderBottom: 'none' } : {}),
-              }}>
-                <span style={{ fontSize: '1rem', flexShrink: 0, width: 24, textAlign: 'center' }}>
-                  {passed ? '✅' : '❌'}
-                </span>
-                <div style={{ flex: 1 }}>
-                  <span style={styles.auditName}>{audit.title}</span>
-                  {audit.description && (
-                    <p style={styles.auditDesc}>
-                      {audit.description.replace(/\[.*?\]\(.*?\)/g, '').trim().slice(0, 140)}
-                    </p>
-                  )}
-                  {/* Show AI insight for failed audits */}
-                  {!passed && auditInterps?.[audit.id]?.what && (
-                    <p style={styles.auditInsight}>{auditInterps[audit.id].what}</p>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
 
-      {/* AI Visibility Note */}
+      {ordered.length === 0 ? (
+        <div style={styles.card}>
+          <p style={{ ...styles.interpText, color: color.textMuted }}>No SEO audits available</p>
+        </div>
+      ) : (
+        <>
+          {/* Group 1: Needs Attention (failed checks) */}
+          {failed.length > 0 && (
+            <div style={{ ...styles.card, marginBottom: space.md }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.sm }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#EF4444', display: 'inline-block' }} />
+                <span style={{ fontFamily: font.family, fontSize: font.sizeSm, fontWeight: font.weightBold, color: '#EF4444' }}>
+                  Needs Attention ({failed.length})
+                </span>
+              </div>
+              {failed.map((a, i, arr) => renderAuditRow(a, i, arr, 'failed'))}
+            </div>
+          )}
+
+          {/* Group 2: Confirmed (passed checks) */}
+          {passed.length > 0 && (
+            <div style={{ ...styles.card, marginBottom: space.md }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.sm }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#22C55E', display: 'inline-block' }} />
+                <span style={{ fontFamily: font.family, fontSize: font.sizeSm, fontWeight: font.weightSemibold, color: '#22C55E' }}>
+                  Confirmed ({passed.length})
+                </span>
+                {passed.length > 5 && (
+                  <button
+                    onClick={() => setShowPassing(!showPassing)}
+                    style={{
+                      marginLeft: 'auto',
+                      background: 'none',
+                      border: 'none',
+                      color: color.textMuted,
+                      fontFamily: font.family,
+                      fontSize: font.sizeXs,
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    {showPassing ? 'Hide' : `Show ${passed.length} passing checks`}
+                  </button>
+                )}
+              </div>
+              {(passed.length <= 5 || showPassing) &&
+                passed.map((a, i, arr) => renderAuditRow(a, i, arr, 'passed'))
+              }
+            </div>
+          )}
+
+          {/* Group 3: Not Evaluated */}
+          {notEvaluated.length > 0 && (
+            <div style={{ ...styles.card, marginBottom: space.md }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: space.xs, marginBottom: space.sm }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#9CA3AF', display: 'inline-block' }} />
+                <span style={{ fontFamily: font.family, fontSize: font.sizeSm, fontWeight: font.weightMedium, color: '#9CA3AF' }}>
+                  Not Evaluated ({notEvaluated.length})
+                </span>
+              </div>
+              {notEvaluated.map((a, i, arr) => renderAuditRow(a, i, arr, 'na'))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* AI Visibility — Contextual Findings */}
       <h3 style={styles.sectionTitle}>AI Visibility</h3>
-      <div style={{ ...styles.card, backgroundColor: '#F0FDF4', borderLeft: `4px solid ${lensColor}` }}>
-        <span style={{ ...styles.interpLabel, color: lensColor }}>ABOUT AI VISIBILITY</span>
-        <p style={styles.interpText}>
-          AI Visibility measures how well your site's content structure, metadata, and semantic markup
-          make it readable and citable by AI tools like ChatGPT and Perplexity. Strong schema markup,
-          clear heading hierarchies, and descriptive meta content help AI models accurately reference
-          and recommend your site. This is an emerging dimension that Retina tracks alongside
-          traditional SEO.
-        </p>
-      </div>
+      {aiFindings.length > 0 ? (
+        <div style={styles.card}>
+          {aiFindings.map((finding, i) => (
+            <div key={finding.label} style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: space.sm,
+              padding: `${space.sm} 0`,
+              borderBottom: i < aiFindings.length - 1 ? `1px solid ${color.border}` : 'none',
+            }}>
+              <span style={statusDot(finding.status)} />
+              <div style={{ flex: 1 }}>
+                <span style={{
+                  fontFamily: font.family,
+                  fontSize: font.sizeSm,
+                  fontWeight: font.weightBold,
+                  color: color.text,
+                  display: 'block',
+                }}>
+                  {finding.label}
+                  <span style={statusBadge(finding.status)}>{STATUS_LABELS[finding.status]}</span>
+                </span>
+                <p style={{
+                  margin: `${space.xxs} 0 0 0`,
+                  fontFamily: font.family,
+                  fontSize: font.sizeXs,
+                  color: color.text,
+                  lineHeight: 1.5,
+                }}>
+                  {finding.interpretation}
+                </p>
+              </div>
+            </div>
+          ))}
+          <p style={{
+            margin: `${space.sm} 0 0 0`,
+            fontFamily: font.family,
+            fontSize: font.sizeXs,
+            color: color.textDim,
+            fontStyle: 'italic',
+            lineHeight: 1.4,
+          }}>
+            Lighthouse analyzes a single page at a time. It does not evaluate content quality, keyword strategy, domain authority, or backlinks.
+          </p>
+        </div>
+      ) : (
+        <div style={styles.card}>
+          <p style={{ ...styles.interpText, color: color.textMuted }}>No AI visibility data available for this page.</p>
+        </div>
+      )}
 
       {/* Observations & Findings */}
       {narrative && (

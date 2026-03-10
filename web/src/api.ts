@@ -153,6 +153,7 @@ export interface ProjectOut {
   updated_at: string;
   archived?: boolean;
   screenshot_url?: string | null;
+  retina_score?: number | null;
   is_shared?: boolean;
   share_token?: string | null;
 }
@@ -167,6 +168,7 @@ export interface CreateProjectBody {
   name: string;
   primary_url: string;
   competitor_urls?: string[];
+  additional_pages?: string[];
 }
 
 export async function fetchProjects(includeArchived = false): Promise<ProjectOut[]> {

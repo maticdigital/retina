@@ -36,6 +36,7 @@ class ProjectOut(BaseModel):
     updated_at: str
     archived: bool = False
     screenshot_url: str | None = None
+    retina_score: float | None = None
 
 
 class ProjectDetail(ProjectOut):
@@ -117,8 +118,24 @@ def list_projects(user: CurrentUser, include_archived: bool = False):
     else:
         screenshot_map = {}
 
+    # Fetch latest retina_score from reports table
+    score_map: dict[str, float] = {}
+    if project_ids:
+        rpt_resp = (
+            sb.table("reports")
+            .select("project_id, retina_score")
+            .in_("project_id", project_ids)
+            .order("generated_at", desc=True)
+            .execute()
+        )
+        for rpt in (rpt_resp.data or []):
+            pid = rpt["project_id"]
+            if pid not in score_map and rpt.get("retina_score") is not None:
+                score_map[pid] = rpt["retina_score"]
+
     for row in rows:
         row["screenshot_url"] = screenshot_map.get(row["id"])
+        row["retina_score"] = score_map.get(row["id"])
 
     if not include_archived:
         rows = [r for r in rows if not r.get("archived", False)]
@@ -914,7 +931,22 @@ def get_lens_detail(project_id: str, lens_id: str, user: CurrentUser):
         sb.table("reports").select("retina_score").eq("project_id", project_id)
         .order("generated_at", desc=True).limit(1).execute()
     )
-    project_data = data_resp.data[0] if data_resp.data else {}
+    # Prefer the primary URL's project_data row (multiple rows may exist for competitors)
+    # Normalize for comparison since pipeline normalizes URLs before storing
+    raw_primary = project.get("primary_url", "")
+    norm_primary = raw_primary.strip()
+    if norm_primary and not norm_primary.startswith(("http://", "https://")):
+        norm_primary = "https://" + norm_primary
+    norm_primary = norm_primary.rstrip("/").lower()
+    project_data: dict[str, Any] = {}
+    if data_resp.data:
+        for row in data_resp.data:
+            site_url = (row.get("site_url") or "").rstrip("/").lower()
+            if site_url == norm_primary:
+                project_data = row
+                break
+        if not project_data:
+            project_data = data_resp.data[0]
     analyst_scores = scores_resp.data or []
     report = reports_resp.data[0] if reports_resp.data else {}
 

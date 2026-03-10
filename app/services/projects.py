@@ -132,18 +132,28 @@ def update_interpretations(
     site_url: str,
     interpretations: dict,
 ) -> None:
-    """Store AI-generated interpretations for a site in project_data."""
+    """Store AI-generated interpretations for a site in project_data.
+
+    Merges new AI interpretations with existing data, preserving
+    manually-entered user edits (_user_edits) and artifact metadata (_artifacts).
+    """
     sb = get_supabase()
     existing = (
         sb.table("project_data")
-        .select("id")
+        .select("id, interpretations")
         .eq("project_id", project_id)
         .eq("site_url", site_url)
         .execute()
     )
     if existing.data:
+        # Preserve manually-entered data that lives under reserved keys
+        old_interps = existing.data[0].get("interpretations") or {}
+        merged = {**interpretations}
+        for protected_key in ("_user_edits", "_artifacts"):
+            if protected_key in old_interps:
+                merged[protected_key] = old_interps[protected_key]
         sb.table("project_data").update(
-            {"interpretations": interpretations}
+            {"interpretations": merged}
         ).eq("id", existing.data[0]["id"]).execute()
     else:
         logger.warning(

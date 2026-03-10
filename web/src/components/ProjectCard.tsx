@@ -102,13 +102,20 @@ export function ProjectCard({ project, onOpen, onArchive, onUnarchive, onDelete 
           </div>
         </div>
         <p style={styles.url}>{project.url}</p>
-        <button
-          style={styles.openButton}
-          onClick={() => onOpen?.(project.id)}
-        >
-          Open
-          <ArrowIcon />
-        </button>
+        <div style={styles.bottomRow}>
+          <button
+            style={styles.openButton}
+            onClick={() => onOpen?.(project.id)}
+          >
+            Open
+            <ArrowIcon />
+          </button>
+          {project.overallScore != null && (
+            <span style={styles.score}>
+              {Math.round(project.overallScore)} <span style={styles.scoreMax}>/ 100</span>
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -245,6 +252,11 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
+  bottomRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   openButton: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -258,6 +270,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: font.weightMedium,
     cursor: 'pointer',
     transition: 'background-color 0.15s ease',
+  },
+  score: {
+    fontFamily: font.family,
+    fontSize: font.sizeMd,
+    fontWeight: font.weightSemibold,
+    color: color.text,
+  },
+  scoreMax: {
+    fontWeight: font.weightRegular,
+    color: color.textDim,
+    fontSize: font.sizeSm,
   },
 
   /* Menu */

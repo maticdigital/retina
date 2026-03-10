@@ -28,6 +28,7 @@ export function toProject(p: {
   created_at: string;
   archived?: boolean;
   screenshot_url?: string | null;
+  retina_score?: number | null;
 }): Project {
   return {
     id: p.id,
@@ -37,5 +38,6 @@ export function toProject(p: {
     status: p.status as Project['status'],
     createdAt: p.created_at,
     archived: p.archived ?? false,
+    overallScore: p.retina_score ?? undefined,
   };
 }

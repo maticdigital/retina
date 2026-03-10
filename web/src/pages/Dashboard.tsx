@@ -142,8 +142,14 @@ export function Dashboard() {
     name: string;
     primary_url: string;
     competitor_urls: string[];
+    additional_pages: string[];
   }) => {
-    const created = await createProject(data);
+    const created = await createProject({
+      name: data.name,
+      primary_url: data.primary_url,
+      competitor_urls: data.competitor_urls,
+      additional_pages: data.additional_pages.length > 0 ? data.additional_pages : undefined,
+    });
     setShowNewProject(false);
     navigate(`/projects/${created.id}/status`);
   };

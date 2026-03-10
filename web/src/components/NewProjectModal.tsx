@@ -4,7 +4,7 @@ import { color, font, space, radius } from '../tokens';
 interface NewProjectModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; primary_url: string; competitor_urls: string[] }) => Promise<void>;
+  onSubmit: (data: { name: string; primary_url: string; competitor_urls: string[]; additional_pages: string[] }) => Promise<void>;
 }
 
 export function NewProjectModal({ open, onClose, onSubmit }: NewProjectModalProps) {
@@ -12,6 +12,9 @@ export function NewProjectModal({ open, onClose, onSubmit }: NewProjectModalProp
   const [primaryUrl, setPrimaryUrl] = useState('');
   const [competitorInput, setCompetitorInput] = useState('');
   const [competitors, setCompetitors] = useState<string[]>([]);
+  const [additionalPageInput, setAdditionalPageInput] = useState('');
+  const [additionalPages, setAdditionalPages] = useState<string[]>([]);
+  const [showAdditionalPages, setShowAdditionalPages] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,6 +25,9 @@ export function NewProjectModal({ open, onClose, onSubmit }: NewProjectModalProp
     setPrimaryUrl('');
     setCompetitorInput('');
     setCompetitors([]);
+    setAdditionalPageInput('');
+    setAdditionalPages([]);
+    setShowAdditionalPages(false);
     setError(null);
   };
 
@@ -42,10 +48,30 @@ export function NewProjectModal({ open, onClose, onSubmit }: NewProjectModalProp
     setCompetitors((prev) => prev.filter((c) => c !== url));
   };
 
+  const addAdditionalPage = () => {
+    const url = additionalPageInput.trim();
+    if (!url) return;
+    if (additionalPages.includes(url)) return;
+    if (additionalPages.length >= 10) return;
+    setAdditionalPages((prev) => [...prev, url]);
+    setAdditionalPageInput('');
+  };
+
+  const removeAdditionalPage = (url: string) => {
+    setAdditionalPages((prev) => prev.filter((p) => p !== url));
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       addCompetitor();
+    }
+  };
+
+  const handlePageKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addAdditionalPage();
     }
   };
 
@@ -68,6 +94,7 @@ export function NewProjectModal({ open, onClose, onSubmit }: NewProjectModalProp
         name: name.trim(),
         primary_url: primaryUrl.trim(),
         competitor_urls: competitors,
+        additional_pages: additionalPages,
       });
       reset();
     } catch (err: unknown) {
@@ -154,6 +181,79 @@ export function NewProjectModal({ open, onClose, onSubmit }: NewProjectModalProp
                 </span>
               ))}
             </div>
+          )}
+
+          {/* Additional Pages (Optional) */}
+          {!showAdditionalPages ? (
+            <button
+              type="button"
+              onClick={() => setShowAdditionalPages(true)}
+              style={{
+                background: 'none',
+                border: `1px dashed ${color.border}`,
+                borderRadius: radius.md,
+                padding: `${space.sm} ${space.md}`,
+                fontFamily: font.family,
+                fontSize: font.sizeXs,
+                color: color.textMuted,
+                cursor: 'pointer',
+                width: '100%',
+                textAlign: 'left' as const,
+              }}
+            >
+              + Additional Pages (Optional)
+            </button>
+          ) : (
+            <>
+              <label style={styles.label}>
+                Additional Pages
+                <span style={styles.hint}>
+                  Add up to 10 additional pages to include in Performance and SEO analysis.
+                  Homepage is always the primary analysis. Additional pages contribute to averaged scores only.
+                </span>
+                <div style={styles.competitorRow}>
+                  <input
+                    type="url"
+                    value={additionalPageInput}
+                    onChange={(e) => setAdditionalPageInput(e.target.value)}
+                    onKeyDown={handlePageKeyDown}
+                    placeholder="https://example.com/about"
+                    style={{ ...styles.input, flex: 1 }}
+                    disabled={additionalPages.length >= 10}
+                  />
+                  <button
+                    type="button"
+                    onClick={addAdditionalPage}
+                    style={styles.addBtn}
+                    disabled={additionalPages.length >= 10}
+                  >
+                    Add
+                  </button>
+                </div>
+              </label>
+              {additionalPages.length > 0 && (
+                <div style={styles.chips}>
+                  {additionalPages.map((url) => (
+                    <span key={url} style={styles.chip}>
+                      {url}
+                      <button
+                        type="button"
+                        onClick={() => removeAdditionalPage(url)}
+                        style={styles.chipRemove}
+                        aria-label={`Remove ${url}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {additionalPages.length >= 10 && (
+                <span style={{ fontFamily: font.family, fontSize: font.sizeXs, color: color.textDim }}>
+                  Maximum of 10 additional pages reached.
+                </span>
+              )}
+            </>
           )}
 
           {/* Actions */}

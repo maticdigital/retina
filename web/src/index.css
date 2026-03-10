@@ -30,8 +30,8 @@ button:hover {
 
 input:focus,
 select:focus {
-  border-color: #7B5CF0;
-  box-shadow: 0 0 0 2px rgba(123, 92, 240, 0.15);
+  border-color: #000227;
+  box-shadow: 0 0 0 2px rgba(0, 2, 39, 0.15);
 }
 
 /* ── Mobile responsive overrides ─────────────────── */

@@ -12,26 +12,28 @@ def _is_currently_live(tech: dict) -> bool:
     A technology is considered currently live if:
     - It has no IsPremium/CurrentlyLive field (older API formats — assume live)
     - CurrentlyLive is explicitly > 0
-    - LastDetected is 0 (still active, never "un-detected")
+    - LastDetected is 0 (still active) or within the last ~6 months
 
-    We filter out entries where CurrentlyLive == 0 and LastDetected > 0,
-    which indicates the tech was previously detected but is no longer present.
+    We filter out entries where CurrentlyLive == 0 or where LastDetected
+    is far in the past, indicating the tech is no longer present.
     """
+    import time
+
     # CurrentlyLive: 0 = historical only, >0 = actively detected now
     currently_live = tech.get("CurrentlyLive")
     if currently_live is not None:
         return currently_live > 0
 
-    # Fallback: if FirstDetected exists but LastDetected is non-zero,
-    # the tech was seen historically but may no longer be present.
-    first = tech.get("FirstDetected", 0)
+    # Fallback: check LastDetected timestamp (milliseconds since epoch).
+    # If LastDetected is 0 the tech is still live. If it's a recent timestamp
+    # (within the last 6 months) it's still considered current.
     last = tech.get("LastDetected", 0)
-    if first > 0 and last > 0:
-        # Both timestamps present and non-zero — historical detection
-        return False
+    if last == 0:
+        return True
 
-    # No lifecycle fields or LastDetected is 0 (still live) — assume current
-    return True
+    # Convert ms epoch to seconds and compare to ~6 months ago
+    six_months_ago = (time.time() - 180 * 86400) * 1000
+    return last >= six_months_ago
 
 
 # CMS category names used by BuiltWith
