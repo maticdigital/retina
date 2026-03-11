@@ -330,6 +330,7 @@ def _extract_tech_stack(builtwith_data: dict) -> dict[str, list[str]]:
     CMS_CATS = {"CMS", "WordPress", "Blogs", "Ecommerce"}
     ANALYTICS_CATS = {"Analytics", "Analytics and tracking"}
     CRM_CATS = {"CRM", "Marketing automation", "Live chat"}
+    CDN_CATS = {"CDN", "Content Delivery Network"}
 
     stack: dict[str, list[str]] = {}
     for t in techs:
@@ -339,6 +340,8 @@ def _extract_tech_stack(builtwith_data: dict) -> dict[str, list[str]]:
             continue
         if cats & CMS_CATS:
             stack.setdefault("cms", []).append(name)
+        if cats & CDN_CATS:
+            stack.setdefault("cdn", []).append(name)
         if cats & ANALYTICS_CATS:
             stack.setdefault("analytics", []).append(name)
         if cats & CRM_CATS:

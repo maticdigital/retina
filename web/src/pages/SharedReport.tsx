@@ -1023,10 +1023,10 @@ function ReportViewer({ data }: { data: SharedProjectData }) {
                 <div style={s.card}>
                   <h2 style={s.cardTitle}>Technology Stack</h2>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: space.sm }}>
-                    {(['cms', 'analytics', 'crm'] as const).map((cat) => {
+                    {(['cms', 'cdn', 'analytics', 'crm'] as const).map((cat) => {
                       const items = (project.tech_stack as TechStack)?.[cat];
                       if (!items || items.length === 0) return null;
-                      const labels: Record<string, string> = { cms: 'CMS', analytics: 'Analytics', crm: 'CRM' };
+                      const labels: Record<string, string> = { cms: 'CMS', cdn: 'CDN', analytics: 'Analytics', crm: 'CRM' };
                       return (
                         <div key={cat}>
                           <p style={{ margin: 0, fontSize: font.sizeXs, fontWeight: font.weightSemibold, color: color.textDim, textTransform: 'uppercase' as const, letterSpacing: '0.04em', marginBottom: space.xxs }}>

@@ -808,6 +808,9 @@ def _extract_tech_stack(builtwith_data: dict) -> dict[str, list[str]]:
         "Hosted Solution": "cms",
         "Headless": "cms",
         "Enterprise": "cms",
+        # CDN
+        "CDN": "cdn",
+        "Content Delivery Network": "cdn",
         # Analytics
         "Audience Measurement": "analytics",
         "Visitor Count Tracking": "analytics",
@@ -838,6 +841,14 @@ def _extract_tech_stack(builtwith_data: dict) -> dict[str, list[str]]:
         "Hotjar": "analytics",
         "Mixpanel": "analytics",
         "Segment": "analytics",
+        # CDN
+        "Cloudflare": "cdn",
+        "Fastly": "cdn",
+        "Akamai": "cdn",
+        "Amazon CloudFront": "cdn",
+        "KeyCDN": "cdn",
+        "Bunny CDN": "cdn",
+        "StackPath": "cdn",
     }
 
     result: dict[str, set[str]] = {}
