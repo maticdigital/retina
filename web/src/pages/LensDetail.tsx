@@ -340,15 +340,6 @@ function ObservationsCard({
   );
 }
 
-/* ── Score interpretation helpers ─────────────────── */
-
-function scoreInterpretation(score: number): string {
-  if (score >= 90) return 'Strong performance';
-  if (score >= 70) return 'Solid, with room to improve';
-  if (score >= 50) return 'Needs improvement';
-  return 'Needs significant improvement';
-}
-
 /* ── Performance & Platform ──────────────────────── */
 
 function PerformanceSection({ data }: { data: LensDetailData }) {
@@ -568,7 +559,7 @@ function PerformanceSection({ data }: { data: LensDetailData }) {
               <p style={styles.metricInterpretation}>
                 {level === 'good'
                   ? "Mobile content loads quickly, meeting Google's recommended 2.5s threshold."
-                  : level !== 'good' && dLevel === 'good'
+                  : dLevel === 'good'
                   ? `Desktop experience is fast, but mobile visitors — typically ~50% of traffic — wait ${valS}s before content is fully visible.`
                   : `At ${valS}s, mobile visitors see a blank or incomplete page for longer than recommended — Google's threshold for "good" is under 2.5s.`}
               </p>
