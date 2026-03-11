@@ -829,6 +829,8 @@ def _extract_tech_stack(builtwith_data: dict) -> dict[str, list[str]]:
         "Squarespace": "cms",
         "Wix": "cms",
         "Drupal": "cms",
+        "HubSpot COS": "cms",
+        "HubSpot CMS": "cms",
         "HubSpot": "crm",
         "Salesforce": "crm",
         "Marketo": "crm",

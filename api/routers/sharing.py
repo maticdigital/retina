@@ -325,25 +325,61 @@ def verify_shared_project(share_token: str, body: VerifyShareRequest):
 # ── Utility ───────────────────────────────────────────────────────────────────
 
 def _extract_tech_stack(builtwith_data: dict) -> dict[str, list[str]]:
-    """Extract key technology stack info from BuiltWith data."""
-    techs = builtwith_data.get("technologies") or []
-    CMS_CATS = {"CMS", "WordPress", "Blogs", "Ecommerce"}
-    ANALYTICS_CATS = {"Analytics", "Analytics and tracking"}
-    CRM_CATS = {"CRM", "Marketing automation", "Live chat"}
-    CDN_CATS = {"CDN", "Content Delivery Network"}
+    """Extract key technology stack info from BuiltWith data.
 
-    stack: dict[str, list[str]] = {}
-    for t in techs:
-        cats = set(t.get("categories") or [])
-        name = t.get("name", "")
+    Uses name overrides for common tools (highest priority) then falls
+    back to BuiltWith category matching.  Mirrors the logic in
+    projects.py so analyst and shared views show identical results.
+    """
+    techs = builtwith_data.get("technologies") or []
+    if not techs:
+        return {}
+
+    CATEGORY_MAP = {
+        "Hosted Solution": "cms", "Headless": "cms", "Enterprise": "cms",
+        "CMS": "cms", "WordPress": "cms", "Blogs": "cms", "Ecommerce": "cms",
+        "CDN": "cdn", "Content Delivery Network": "cdn",
+        "Analytics": "analytics", "Analytics and tracking": "analytics",
+        "Audience Measurement": "analytics", "Visitor Count Tracking": "analytics",
+        "Tag Management": "analytics",
+        "CRM": "crm", "Marketing automation": "crm", "Live chat": "crm",
+        "Feedback Forms and Surveys": "crm", "Transactional Email": "crm",
+    }
+
+    NAME_OVERRIDES = {
+        "Webflow": "cms", "WordPress": "cms", "Contentful": "cms",
+        "Shopify": "cms", "Squarespace": "cms", "Wix": "cms", "Drupal": "cms",
+        "HubSpot COS": "cms", "HubSpot CMS": "cms",
+        "HubSpot": "crm", "Salesforce": "crm", "Marketo": "crm",
+        "Pardot": "crm", "Mailchimp": "crm", "ActiveCampaign": "crm",
+        "Google Analytics": "analytics", "Google Analytics 4": "analytics",
+        "Google Tag Manager": "analytics", "Hotjar": "analytics",
+        "Mixpanel": "analytics", "Segment": "analytics",
+        "Cloudflare": "cdn", "Fastly": "cdn", "Akamai": "cdn",
+        "Amazon CloudFront": "cdn", "KeyCDN": "cdn",
+        "Bunny CDN": "cdn", "StackPath": "cdn",
+    }
+
+    result: dict[str, set[str]] = {}
+    seen: set[str] = set()
+
+    for tech in techs:
+        name = tech.get("name", "").strip()
         if not name:
             continue
-        if cats & CMS_CATS:
-            stack.setdefault("cms", []).append(name)
-        if cats & CDN_CATS:
-            stack.setdefault("cdn", []).append(name)
-        if cats & ANALYTICS_CATS:
-            stack.setdefault("analytics", []).append(name)
-        if cats & CRM_CATS:
-            stack.setdefault("crm", []).append(name)
-    return stack
+
+        cat = NAME_OVERRIDES.get(name)
+        if cat:
+            if name not in seen:
+                result.setdefault(cat, set()).add(name)
+                seen.add(name)
+            continue
+
+        for bw_cat in tech.get("categories", []):
+            cat = CATEGORY_MAP.get(bw_cat)
+            if cat and name not in seen:
+                result.setdefault(cat, set()).add(name)
+                seen.add(name)
+                break
+
+    return {k: sorted(v)[:8] for k, v in result.items() if v}
