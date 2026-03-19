@@ -701,7 +701,21 @@ def get_project_summary(project_id: str, user: CurrentUser):
         sb.table("analyst_scores").select("*").eq("project_id", project_id).execute()
     )
 
-    project_data = data_resp.data[0] if data_resp.data else {}
+    # Prefer the primary URL's project_data row (multiple rows may exist for competitors)
+    raw_primary = project.get("primary_url", "")
+    norm_primary = raw_primary.strip()
+    if norm_primary and not norm_primary.startswith(("http://", "https://")):
+        norm_primary = "https://" + norm_primary
+    norm_primary = norm_primary.rstrip("/").lower()
+    project_data: dict[str, Any] = {}
+    if data_resp.data:
+        for row in data_resp.data:
+            site_url = (row.get("site_url") or "").rstrip("/").lower()
+            if site_url == norm_primary:
+                project_data = row
+                break
+        if not project_data:
+            project_data = data_resp.data[0]
     report = reports_resp.data[0] if reports_resp.data else {}
     analyst_scores = scores_resp.data or []
 
@@ -722,7 +736,12 @@ def get_project_summary(project_id: str, user: CurrentUser):
 
     # ── Lens scores ───────────────────────────────────────────────────────
     automated = project_data.get("automated_scores") or {}
-    analyst_map = {s["lens_name"]: s for s in analyst_scores}
+    # Build analyst map, preferring entries for the primary_url
+    analyst_map: dict[str, Any] = {}
+    for s in analyst_scores:
+        ln = s.get("lens_name", "")
+        if ln not in analyst_map or s.get("site_url") == raw_primary:
+            analyst_map[ln] = s
 
     lens_scores: list[dict[str, Any]] = []
     for lid in LENS_ORDER:
@@ -1287,7 +1306,7 @@ def update_subdimension(
 
     site_url = project.get("primary_url", "")
 
-    # Get existing analyst_scores row
+    # Get existing analyst_scores row for the primary URL
     scores_resp = (
         sb.table("analyst_scores")
         .select("*")
@@ -1296,11 +1315,15 @@ def update_subdimension(
         .execute()
     )
 
+    # Prefer the row matching primary_url (multiple rows may exist for competitors)
+    row = None
     if scores_resp.data:
         row = scores_resp.data[0]
-        sub_scores = row.get("sub_scores") or {}
-    else:
-        sub_scores = {}
+        for r in scores_resp.data:
+            if r.get("site_url") == site_url:
+                row = r
+                break
+    sub_scores = (row.get("sub_scores") or {}) if row else {}
 
     # Update this sub-dimension with new shape
     sub_scores[subdim_id] = {
@@ -1309,10 +1332,10 @@ def update_subdimension(
     }
 
     # Upsert
-    if scores_resp.data:
+    if row:
         sb.table("analyst_scores").update({
             "sub_scores": sub_scores,
-        }).eq("id", scores_resp.data[0]["id"]).execute()
+        }).eq("id", row["id"]).execute()
     else:
         sb.table("analyst_scores").insert({
             "project_id": project_id,

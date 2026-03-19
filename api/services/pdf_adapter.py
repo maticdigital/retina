@@ -296,12 +296,31 @@ def build_analysis_run(project_id: str) -> dict:
     project = proj_resp.data[0]
 
     # Project data (lighthouse, builtwith, automated scores, interpretations)
+    # Prefer the primary URL's row (multiple rows may exist for competitors)
     data_resp = sb.table("project_data").select("*").eq("project_id", project_id).execute()
-    project_data = data_resp.data[0] if data_resp.data else {}
+    raw_primary = project.get("primary_url", "")
+    norm_primary = raw_primary.strip()
+    if norm_primary and not norm_primary.startswith(("http://", "https://")):
+        norm_primary = "https://" + norm_primary
+    norm_primary = norm_primary.rstrip("/").lower()
+    project_data: dict = {}
+    if data_resp.data:
+        for row in data_resp.data:
+            site_url = (row.get("site_url") or "").rstrip("/").lower()
+            if site_url == norm_primary:
+                project_data = row
+                break
+        if not project_data:
+            project_data = data_resp.data[0]
 
-    # Analyst scores
+    # Analyst scores — prefer primary URL rows when multiple exist per lens
     scores_resp = sb.table("analyst_scores").select("*").eq("project_id", project_id).execute()
-    analyst_scores = scores_resp.data or []
+    _analyst_map: dict[str, dict] = {}
+    for s in scores_resp.data or []:
+        ln = s.get("lens_name", "")
+        if ln not in _analyst_map or s.get("site_url") == raw_primary:
+            _analyst_map[ln] = s
+    analyst_scores = list(_analyst_map.values())
 
     # Latest report
     reports_resp = (

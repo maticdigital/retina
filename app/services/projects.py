@@ -307,22 +307,46 @@ def recalculate_scores(project_id: str) -> dict[str, float]:
     Fetches current data from Supabase, computes correct totals, and
     updates the latest report row with the new composite score.
 
+    Uses only the primary URL's scores when multiple rows exist (competitors).
+
     Returns:
         Dict with keys: performance, seo, brand, experience, conversion,
         retina_score — all floats.
     """
     sb = get_supabase()
 
-    # 1. Automated scores from project_data
+    # Look up primary URL for filtering
+    proj_resp = (
+        sb.table("projects")
+        .select("primary_url")
+        .eq("id", project_id)
+        .execute()
+    )
+    primary_url = ""
+    if proj_resp.data:
+        primary_url = proj_resp.data[0].get("primary_url", "")
+
+    # 1. Automated scores from project_data (prefer primary URL row)
     pd_resp = (
         sb.table("project_data")
-        .select("automated_scores")
+        .select("automated_scores, site_url")
         .eq("project_id", project_id)
         .execute()
     )
     auto_scores = {}
     if pd_resp.data:
-        auto_scores = pd_resp.data[0].get("automated_scores") or {}
+        # Prefer the primary URL's row
+        norm_primary = primary_url.strip()
+        if norm_primary and not norm_primary.startswith(("http://", "https://")):
+            norm_primary = "https://" + norm_primary
+        norm_primary = norm_primary.rstrip("/").lower()
+        chosen = pd_resp.data[0]
+        for row in pd_resp.data:
+            site_url = (row.get("site_url") or "").rstrip("/").lower()
+            if site_url == norm_primary:
+                chosen = row
+                break
+        auto_scores = chosen.get("automated_scores") or {}
 
     perf = 0.0
     seo = 0.0
@@ -331,10 +355,10 @@ def recalculate_scores(project_id: str) -> dict[str, float]:
     if isinstance(auto_scores.get("seo_ai_visibility"), dict):
         seo = float(auto_scores["seo_ai_visibility"].get("score") or 0)
 
-    # 2. Analyst scores from analyst_scores table
+    # 2. Analyst scores from analyst_scores table (prefer primary URL rows)
     as_resp = (
         sb.table("analyst_scores")
-        .select("lens_name, sub_scores")
+        .select("lens_name, sub_scores, site_url")
         .eq("project_id", project_id)
         .execute()
     )
@@ -342,7 +366,9 @@ def recalculate_scores(project_id: str) -> dict[str, float]:
     for row in as_resp.data or []:
         lens = row.get("lens_name", "")
         sub = row.get("sub_scores") or {}
-        analyst_map[lens] = round(_sum_sub_scores(sub), 2)
+        # Only overwrite if this is the first entry or matches primary URL
+        if lens not in analyst_map or row.get("site_url") == primary_url:
+            analyst_map[lens] = round(_sum_sub_scores(sub), 2)
 
     brand = analyst_map.get("brand_messaging", 0.0)
     experience = analyst_map.get("experience_design", 0.0)

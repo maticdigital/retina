@@ -163,7 +163,21 @@ def verify_shared_project(share_token: str, body: VerifyShareRequest):
     )
     scores_resp = sb.table("analyst_scores").select("*").eq("project_id", project_id).execute()
 
-    project_data = data_resp.data[0] if data_resp.data else {}
+    # Prefer the primary URL's project_data row (multiple rows may exist for competitors)
+    raw_primary = project.get("primary_url", "")
+    norm_primary = raw_primary.strip()
+    if norm_primary and not norm_primary.startswith(("http://", "https://")):
+        norm_primary = "https://" + norm_primary
+    norm_primary = norm_primary.rstrip("/").lower()
+    project_data: dict[str, Any] = {}
+    if data_resp.data:
+        for row in data_resp.data:
+            site_url = (row.get("site_url") or "").rstrip("/").lower()
+            if site_url == norm_primary:
+                project_data = row
+                break
+        if not project_data:
+            project_data = data_resp.data[0]
     report = reports_resp.data[0] if reports_resp.data else {}
     analyst_scores = scores_resp.data or []
 
