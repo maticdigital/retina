@@ -13,6 +13,7 @@ import { CopilotPanel } from '../components/CopilotPanel';
 import type { CopilotMessage } from '../components/CopilotPanel';
 import { sendCopilotMessage } from '../api';
 import { LensIcon } from '../components/LensIcons';
+import { ImageGalleryModal } from '../components/ImageGalleryModal';
 
 /* ── Constants ────────────────────────────────────── */
 
@@ -1648,6 +1649,7 @@ function ArtifactsRow({
   onUpdate: () => void;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1676,9 +1678,14 @@ function ArtifactsRow({
     <div style={artifactStyles.wrapper}>
       <h3 style={artifactStyles.heading}>Artifacts</h3>
       <div style={artifactStyles.row}>
-        {artifacts.map((a) => (
+        {artifacts.map((a, i) => (
           <div key={a.id} style={artifactStyles.slot}>
-            <img src={a.file_url} alt={a.file_name} style={artifactStyles.img} />
+            <img
+              src={a.file_url}
+              alt={a.file_name}
+              style={{ ...artifactStyles.img, cursor: 'pointer' }}
+              onClick={() => setGalleryIndex(i)}
+            />
             <button
               style={artifactStyles.deleteBtn}
               onClick={() => handleDelete(a.id)}
@@ -1708,6 +1715,13 @@ function ArtifactsRow({
           </label>
         )}
       </div>
+      {galleryIndex !== null && (
+        <ImageGalleryModal
+          images={artifacts}
+          initialIndex={galleryIndex}
+          onClose={() => setGalleryIndex(null)}
+        />
+      )}
     </div>
   );
 }

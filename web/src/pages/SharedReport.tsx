@@ -6,6 +6,7 @@ import { color, font, space, radius, sidebar as sidebarToken } from '../tokens';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 import { LensIcon } from '../components/LensIcons';
+import { ImageGalleryModal } from '../components/ImageGalleryModal';
 
 /* ── Constants ────────────────────────────────────── */
 
@@ -1124,19 +1125,39 @@ function SharedAnalystSection({ lens }: { lens: SharedLensData }) {
       )}
 
       {/* Artifacts */}
-      {lens.artifacts.length > 0 && (
-        <div style={{ marginTop: space.lg }}>
-          <h3 style={{ fontFamily: font.family, fontWeight: font.weightBold, fontSize: font.sizeLg, color: color.text, margin: `0 0 ${space.md} 0` }}>Artifacts</h3>
-          <div style={{ display: 'flex', gap: space.md, flexWrap: 'wrap' }}>
-            {lens.artifacts.map((a) => (
-              <div key={a.id} style={{ position: 'relative' as const, width: 120, height: 120, borderRadius: radius.lg, overflow: 'hidden', border: `1px solid ${color.border}`, backgroundColor: color.bgPage }}>
-                <img src={a.file_url} alt={a.file_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <SharedArtifacts artifacts={lens.artifacts} />
     </>
+  );
+}
+
+function SharedArtifacts({ artifacts }: { artifacts: Array<{ id: string; file_url: string; file_name: string }> }) {
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
+
+  if (artifacts.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: space.lg }}>
+      <h3 style={{ fontFamily: font.family, fontWeight: font.weightBold, fontSize: font.sizeLg, color: color.text, margin: `0 0 ${space.md} 0` }}>Artifacts</h3>
+      <div style={{ display: 'flex', gap: space.md, flexWrap: 'wrap' }}>
+        {artifacts.map((a, i) => (
+          <div key={a.id} style={{ position: 'relative' as const, width: 120, height: 120, borderRadius: radius.lg, overflow: 'hidden', border: `1px solid ${color.border}`, backgroundColor: color.bgPage }}>
+            <img
+              src={a.file_url}
+              alt={a.file_name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+              onClick={() => setGalleryIndex(i)}
+            />
+          </div>
+        ))}
+      </div>
+      {galleryIndex !== null && (
+        <ImageGalleryModal
+          images={artifacts}
+          initialIndex={galleryIndex}
+          onClose={() => setGalleryIndex(null)}
+        />
+      )}
+    </div>
   );
 }
 
