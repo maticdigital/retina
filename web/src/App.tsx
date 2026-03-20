@@ -10,6 +10,7 @@ import { Report } from './pages/Report';
 import { LensDetail } from './pages/LensDetail';
 import { Profile } from './pages/Profile';
 import { Admin } from './pages/Admin';
+import { Standards } from './pages/Standards';
 import ProjectStatus from './pages/ProjectStatus';
 import { SharedReport } from './pages/SharedReport';
 
@@ -25,6 +26,7 @@ function App() {
           <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+          <Route path="/standards" element={<ProtectedRoute><Standards /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/projects/:projectId/status" element={<ProtectedRoute><ProjectStatus /></ProtectedRoute>} />
           <Route path="/projects/:projectId" element={<ProtectedRoute><Report /></ProtectedRoute>} />

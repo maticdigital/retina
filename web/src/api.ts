@@ -626,3 +626,51 @@ export async function verifyShareToken(token: string, password: string): Promise
 
   return res.json() as Promise<SharedProjectData>;
 }
+
+/* ── Standards Library endpoints ──────────────────────────────────── */
+
+export interface Standard {
+  id: string;
+  lens: string;
+  category: string;
+  principle: string;
+  source: string;
+  source_url: string | null;
+  evaluation_criteria: string;
+  scoring_guidance: string;
+  applies_to_cohort: boolean;
+  is_active: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface StandardsSummary {
+  counts: Record<string, { active: number; inactive: number }>;
+  total: number;
+}
+
+export async function fetchAllStandards(): Promise<Standard[]> {
+  return apiFetch<Standard[]>('/standards/all');
+}
+
+export async function fetchStandardsSummary(): Promise<StandardsSummary> {
+  return apiFetch<StandardsSummary>('/standards/summary');
+}
+
+export async function createStandard(body: Omit<Standard, 'id' | 'is_active' | 'created_at' | 'updated_at'>): Promise<Standard> {
+  return apiFetch<Standard>('/standards', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateStandard(id: string, body: Partial<Standard>): Promise<Standard> {
+  return apiFetch<Standard>(`/standards/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteStandard(id: string): Promise<void> {
+  await apiFetch(`/standards/${id}`, { method: 'DELETE' });
+}

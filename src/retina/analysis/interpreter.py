@@ -14,6 +14,7 @@ from typing import Any
 import anthropic
 
 from retina.config import Settings
+from retina.analysis.standards import get_standards_prompt_block
 
 logger = logging.getLogger(__name__)
 
@@ -233,11 +234,23 @@ class SiteInterpreter:
             len(user_prompt),
         )
 
+        # Inject research standards for all lenses into the system prompt
+        standards_blocks = []
+        for lens_name in ("performance", "seo", "brand", "experience", "conversion"):
+            block = get_standards_prompt_block(lens_name)
+            if block:
+                standards_blocks.append(f"### {lens_name.title()} Lens{block}")
+
+        system_prompt = INTERPRETER_SYSTEM_PROMPT
+        if standards_blocks:
+            system_prompt += "\n\n" + "\n\n".join(standards_blocks)
+            logger.info("Injected standards context for %d lenses", len(standards_blocks))
+
         try:
             message = self._client.messages.create(
                 model=self._settings.anthropic_model,
                 max_tokens=self._settings.anthropic_max_tokens,
-                system=INTERPRETER_SYSTEM_PROMPT,
+                system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}],
             )
 

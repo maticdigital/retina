@@ -15,6 +15,7 @@ import anthropic
 
 from retina.config import Settings
 from retina.scoring.analyst import LENS_DEFINITIONS
+from retina.analysis.standards import get_standards_prompt_block
 
 logger = logging.getLogger(__name__)
 
@@ -202,11 +203,28 @@ class AnalystLensSeeder:
             site_url, len(payload),
         )
 
+        # Inject research standards for each analyst lens
+        standards_blocks = []
+        lens_map = {
+            "brand_messaging": "brand",
+            "experience_design": "experience",
+            "conversion_strategy": "conversion",
+        }
+        for lens_key, standards_lens in lens_map.items():
+            block = get_standards_prompt_block(standards_lens)
+            if block:
+                standards_blocks.append(f"### {lens_key.replace('_', ' ').title()}{block}")
+
+        system_prompt = SEEDER_SYSTEM_PROMPT
+        if standards_blocks:
+            system_prompt += "\n\n" + "\n\n".join(standards_blocks)
+            logger.info("Injected analyst lens standards for %d lenses", len(standards_blocks))
+
         try:
             message = self._client.messages.create(
                 model=self._settings.anthropic_model,
                 max_tokens=4096,
-                system=SEEDER_SYSTEM_PROMPT,
+                system=system_prompt,
                 messages=[
                     {
                         "role": "user",

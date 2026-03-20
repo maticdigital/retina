@@ -115,6 +115,14 @@ try:
 except ImportError as e:
     logger.warning("Sharing router failed to load: %s", e)
 
+# Load standards router
+try:
+    from api.routers import standards
+    app.include_router(standards.router)
+    logger.info("Standards router loaded successfully")
+except ImportError as e:
+    logger.warning("Standards router failed to load: %s", e)
+
 # ── Debug endpoints with safe imports ─────────────────────────────────────────
 
 @app.get("/debug/info")
