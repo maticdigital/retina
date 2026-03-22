@@ -34,6 +34,31 @@ select:focus {
   box-shadow: 0 0 0 2px rgba(0, 2, 39, 0.15);
 }
 
+/* ── Rich text display styles ───────────────────── */
+
+.rich-text-display ul {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+  list-style-type: disc;
+}
+
+.rich-text-display li {
+  margin-bottom: 0.25em;
+}
+
+.rich-text-display a {
+  color: #076EFF;
+  text-decoration: underline;
+}
+
+.rich-text-display p {
+  margin: 0 0 0.5em 0;
+}
+
+.rich-text-display p:last-child {
+  margin-bottom: 0;
+}
+
 /* ── Mobile responsive overrides ─────────────────── */
 
 @media (max-width: 768px) {

@@ -7,6 +7,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 
 import { LensIcon } from '../components/LensIcons';
 import { ImageGalleryModal } from '../components/ImageGalleryModal';
+import { RichTextDisplay } from '../components/RichTextEditor';
 
 /* ── Constants ────────────────────────────────────── */
 
@@ -778,9 +779,7 @@ function SharedPerformanceSection({ lens }: { lens: SharedLensData }) {
           <h3 style={s.sectionTitle}>Observations &amp; Findings</h3>
           <div style={{ ...s.card, borderLeft: `4px solid ${lensColor}` }}>
             <span style={s.interpLabel}>RETINA ANALYSIS</span>
-            {narrative.split('\n\n').map((para, i) => (
-              <p key={i} style={s.interpText}>{para}</p>
-            ))}
+            <RichTextDisplay html={narrative} />
           </div>
         </>
       )}
@@ -1042,9 +1041,7 @@ function SharedSeoSection({ lens }: { lens: SharedLensData }) {
           <h3 style={s.sectionTitle}>Observations &amp; Findings</h3>
           <div style={{ ...s.card, borderLeft: `4px solid ${lensColor}` }}>
             <span style={s.interpLabel}>RETINA ANALYSIS</span>
-            {narrative.split('\n\n').map((para, i) => (
-              <p key={i} style={s.interpText}>{para}</p>
-            ))}
+            <RichTextDisplay html={narrative} />
           </div>
         </>
       )}
@@ -1081,9 +1078,7 @@ function SharedAnalystSection({ lens }: { lens: SharedLensData }) {
       {displayText && (
         <div style={{ ...s.card, borderLeft: `4px solid ${lens.lens_color}`, marginTop: space.lg }}>
           <h3 style={{ ...s.sectionTitle, margin: 0, marginBottom: space.md }}>Overall Observations</h3>
-          {displayText.split('\n\n').map((para, i) => (
-            <p key={i} style={s.interpText}>{para}</p>
-          ))}
+          <RichTextDisplay html={displayText} />
         </div>
       )}
 
@@ -1108,14 +1103,18 @@ function SharedAnalystSection({ lens }: { lens: SharedLensData }) {
                   </div>
                   <div style={{ display: 'flex', gap: space.md, alignItems: 'flex-start' }}>
                     <LensDonut score={val.score} maxScore={maxScore} lensColor={lens.lens_color} diameter={56} />
-                    <p style={{
-                      margin: 0, fontFamily: font.family, fontSize: font.sizeSm,
-                      color: val.observation ? color.text : color.textMuted,
-                      lineHeight: 1.6, flex: 1,
-                      fontStyle: val.observation ? 'normal' : 'italic',
-                    }}>
-                      {val.observation || 'Awaiting analysis'}
-                    </p>
+                    {val.observation ? (
+                      <div style={{ flex: 1 }}>
+                        <RichTextDisplay html={val.observation} />
+                      </div>
+                    ) : (
+                      <p style={{
+                        margin: 0, fontFamily: font.family, fontSize: font.sizeSm,
+                        color: color.textMuted, lineHeight: 1.6, flex: 1, fontStyle: 'italic',
+                      }}>
+                        Awaiting analysis
+                      </p>
+                    )}
                   </div>
                 </div>
               );

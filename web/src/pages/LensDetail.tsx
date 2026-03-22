@@ -14,6 +14,7 @@ import type { CopilotMessage } from '../components/CopilotPanel';
 import { sendCopilotMessage } from '../api';
 import { LensIcon } from '../components/LensIcons';
 import { ImageGalleryModal } from '../components/ImageGalleryModal';
+import { RichTextEditor, RichTextDisplay } from '../components/RichTextEditor';
 
 /* ── Constants ────────────────────────────────────── */
 
@@ -300,11 +301,10 @@ function ObservationsCard({
       <div style={{ ...styles.card, borderLeft: `4px solid ${lensColor}` }}>
         {editing ? (
           <>
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              style={styles.obsTextarea}
-              rows={8}
+            <RichTextEditor
+              initialContent={draft}
+              onChange={(html) => setDraft(html)}
+              minHeight={160}
             />
             <div style={styles.obsActions}>
               <button style={styles.obsSaveBtn} onClick={handleSave} disabled={saving}>
@@ -328,9 +328,12 @@ function ObservationsCard({
         ) : (
           <>
             <span style={styles.interpLabel}>RETINA ANALYSIS</span>
-            {displayText.split('\n\n').map((para, i) => (
-              <p key={i} style={styles.interpText}>{para}</p>
-            ))}
+            <RichTextDisplay html={displayText} />
+            {!displayText && (
+              <p style={{ ...styles.interpText, color: color.textMuted, fontStyle: 'italic' }}>
+                No observations recorded yet.
+              </p>
+            )}
             {isUserEdited && (
               <span style={styles.obsEditedBadge}>Edited</span>
             )}
@@ -1362,11 +1365,10 @@ function OverallObservationsCard({
 
         {editing ? (
           <>
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              style={styles.obsTextarea}
-              rows={8}
+            <RichTextEditor
+              initialContent={draft}
+              onChange={(html) => setDraft(html)}
+              minHeight={160}
             />
             <div style={styles.obsActions}>
               <button style={styles.obsSaveBtn} onClick={handleSave} disabled={saving}>
@@ -1377,9 +1379,7 @@ function OverallObservationsCard({
           </>
         ) : (
           displayText ? (
-            displayText.split('\n\n').map((para, i) => (
-              <p key={i} style={styles.interpText}>{para}</p>
-            ))
+            <RichTextDisplay html={displayText} />
           ) : (
             <p style={{ ...styles.interpText, color: color.textMuted, fontStyle: 'italic' }}>
               No observations recorded yet. Click the pencil icon to add observations, or use Retina Copilot to generate them.
@@ -1540,13 +1540,12 @@ function SubDimensionCard({
               style={{ width: '100%', accentColor: lensColor }}
             />
           </div>
-          {/* Observation textarea */}
-          <textarea
-            value={draftObs}
-            onChange={(e) => setDraftObs(e.target.value)}
+          {/* Observation editor */}
+          <RichTextEditor
+            initialContent={draftObs}
+            onChange={(html) => setDraftObs(html)}
             placeholder={placeholder}
-            style={{ ...styles.obsTextarea, minHeight: 80 }}
-            rows={3}
+            minHeight={80}
           />
           <div style={{ display: 'flex', gap: space.sm, marginTop: space.sm }}>
             <button style={styles.obsSaveBtn} onClick={handleSave} disabled={saving}>
@@ -1558,17 +1557,23 @@ function SubDimensionCard({
       ) : (
         <div style={{ display: 'flex', gap: space.md, alignItems: 'flex-start' }}>
           <LensDonut score={score} maxScore={maxScore} lensColor={lensColor} diameter={56} />
-          <p style={{
-            margin: 0,
-            fontFamily: font.family,
-            fontSize: font.sizeSm,
-            color: observation ? color.text : color.textMuted,
-            lineHeight: 1.6,
-            flex: 1,
-            fontStyle: observation ? 'normal' : 'italic',
-          }}>
-            {observation || 'Awaiting analysis — click the pencil icon to add observations'}
-          </p>
+          {observation ? (
+            <div style={{ flex: 1 }}>
+              <RichTextDisplay html={observation} />
+            </div>
+          ) : (
+            <p style={{
+              margin: 0,
+              fontFamily: font.family,
+              fontSize: font.sizeSm,
+              color: color.textMuted,
+              lineHeight: 1.6,
+              flex: 1,
+              fontStyle: 'italic',
+            }}>
+              Awaiting analysis — click the pencil icon to add observations
+            </p>
+          )}
         </div>
       )}
     </div>

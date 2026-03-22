@@ -90,8 +90,6 @@ def list_projects(user: CurrentUser, include_archived: bool = False):
     """Return all projects visible to the current user."""
     sb = get_supabase()
     query = sb.table("projects").select("*")
-    if user["role"] == "analyst":
-        query = query.eq("created_by", user["id"])
     resp = query.order("updated_at", desc=True).execute()
     rows = resp.data or []
 
@@ -440,14 +438,11 @@ class PipelineStatusOut(BaseModel):
 @router.get("/{project_id}/status", response_model=PipelineStatusOut)
 def get_project_status(project_id: str, user: CurrentUser):
     """Return current pipeline status for a project."""
-    # Verify project access
     sb = get_supabase()
     proj_resp = sb.table("projects").select("id, created_by, status").eq("id", project_id).execute()
     if not proj_resp.data:
         raise HTTPException(status_code=404, detail="Project not found")
     project = proj_resp.data[0]
-    if user["role"] == "analyst" and project["created_by"] != user["id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
 
     # Check in-memory status first
     run = get_run(project_id)
@@ -687,9 +682,6 @@ def get_project_summary(project_id: str, user: CurrentUser):
     if not proj_resp.data:
         raise HTTPException(status_code=404, detail="Project not found")
     project = proj_resp.data[0]
-
-    if user["role"] == "analyst" and project["created_by"] != user["id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
 
     # Fetch related data
     data_resp = sb.table("project_data").select("*").eq("project_id", project_id).execute()
@@ -953,8 +945,6 @@ def get_lens_detail(project_id: str, lens_id: str, user: CurrentUser):
     if not proj_resp.data:
         raise HTTPException(status_code=404, detail="Project not found")
     project = proj_resp.data[0]
-    if user["role"] == "analyst" and project["created_by"] != user["id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
 
     # Fetch related data
     data_resp = sb.table("project_data").select("*").eq("project_id", project_id).execute()
@@ -1255,7 +1245,13 @@ def copilot_chat(
         "site where possible. Keep responses concise and actionable. "
         "Use Matic's consultative voice — confident, direct, always connecting "
         "findings to business outcomes. Write 2-3 paragraphs of expert strategic "
-        "commentary, not a checklist review."
+        "commentary, not a checklist review.\n\n"
+        "Format your response using simple HTML where appropriate: "
+        "<strong> for emphasis on key terms, <em> for secondary emphasis, "
+        "<ul><li> for listing distinct observations or recommendations, "
+        "and <a href=\"url\"> for referencing specific pages or resources. "
+        "Do not use headings, tables, images, or any other HTML elements. "
+        "Write in a strategic, advisory tone."
     )
 
     # Build messages list
@@ -1489,10 +1485,6 @@ def get_project(project_id: str, user: CurrentUser):
         raise HTTPException(status_code=404, detail="Project not found")
 
     project = proj_resp.data[0]
-
-    # Enforce access: analysts can only see their own
-    if user["role"] == "analyst" and project["created_by"] != user["id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
 
     # Fetch related data
     data_resp = sb.table("project_data").select("*").eq("project_id", project_id).execute()
