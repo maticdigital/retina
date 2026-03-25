@@ -895,13 +895,12 @@ def _extract_tech_stack(builtwith_data: dict) -> dict[str, list[str]]:
         cms_conflict = True
 
     # Convert sets to sorted lists, limit each category
-    output: dict[str, Any] = {k: sorted(v)[:8] for k, v in result.items() if v}
+    output: dict[str, list[str]] = {k: sorted(v)[:8] for k, v in result.items() if v}
     if cms_conflict:
-        output["_cms_conflict"] = True
-        output["_cms_conflict_note"] = (
-            f"Multiple CMS platforms detected ({bw_meta.get('cms_detected', '')}) — "
-            "flagged for analyst review. Verify which is currently active."
-        )
+        # Surface conflict as an entry in the cms list so it stays within
+        # the dict[str, list[str]] contract expected by the API models.
+        note = f"Multiple CMS detected ({bw_meta.get('cms_detected', '')})"
+        output.setdefault("cms", []).append(f"⚠ {note}")
     return output
 
 
