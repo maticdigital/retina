@@ -1,8 +1,28 @@
 /**
- * Thin API client that talks to the FastAPI backend at :8000.
+ * Thin API client that talks to the FastAPI backend.
+ *
+ * BASE resolves to VITE_API_URL unless that value points at localhost while
+ * the page itself is served from a non-localhost origin — in which case we
+ * fall back to the production backend. This guards against stale build-time
+ * env vars (e.g. a Vercel deploy that captured a local dev URL).
  */
 
-const BASE = import.meta.env.VITE_API_URL || 'https://retina-production.up.railway.app';
+const PROD_API_URL = 'https://retina-production.up.railway.app';
+
+function resolveApiBase(): string {
+  const fromEnv = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  if (!fromEnv) return PROD_API_URL;
+
+  const envIsLocal = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?/i.test(fromEnv);
+  const pageIsLocal =
+    typeof window !== 'undefined' &&
+    /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+
+  if (envIsLocal && !pageIsLocal) return PROD_API_URL;
+  return fromEnv;
+}
+
+const BASE = resolveApiBase();
 
 /** Get the stored access token. */
 export function getToken(): string | null {
