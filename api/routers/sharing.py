@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 import bcrypt
+import httpx
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from api.deps import CurrentUser, get_supabase
 
@@ -129,7 +132,7 @@ def disable_sharing(project_id: str, user: CurrentUser):
 
 
 @router.post("/shared/{share_token}/verify")
-def verify_shared_project(share_token: str, body: VerifyShareRequest):
+def verify_shared_project(share_token: str, body: VerifyShareRequest, request: Request):
     """
     Public endpoint — no auth required.
     Verify password and return the full project report data.
@@ -154,6 +157,9 @@ def verify_shared_project(share_token: str, body: VerifyShareRequest):
         raise HTTPException(status_code=401, detail="Invalid password")
 
     project_id = project["id"]
+
+    # ── Log the view and (best-effort) notify Slack ──────────────────────
+    _record_share_view(sb, project, share_token, request)
 
     # ── Fetch all related data ────────────────────────────────────────────
     data_resp = sb.table("project_data").select("*").eq("project_id", project_id).execute()
@@ -334,6 +340,59 @@ def verify_shared_project(share_token: str, body: VerifyShareRequest):
         },
         "lenses": lenses,
     }
+
+
+# ── Share view logging + Slack notify ─────────────────────────────────────────
+
+def _client_ip(request: Request) -> str | None:
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    client = request.client
+    return client.host if client else None
+
+
+def _record_share_view(sb, project: dict, share_token: str, request: Request) -> None:
+    """Insert a share_views row and fire a Slack notification. Never raises."""
+    ip = _client_ip(request)
+    user_agent = request.headers.get("user-agent")
+
+    try:
+        sb.table("share_views").insert({
+            "project_id": project["id"],
+            "share_token": share_token,
+            "ip_address": ip,
+            "user_agent": user_agent,
+        }).execute()
+    except Exception:
+        logger.exception("Failed to insert share_views row")
+
+    try:
+        _notify_slack_share_view(project)
+    except Exception:
+        logger.exception("Failed to send Slack share-view notification")
+
+
+def _notify_slack_share_view(project: dict) -> None:
+    webhook_url = os.getenv("SLACK_SHARE_WEBHOOK_URL", "").strip()
+    if not webhook_url:
+        return
+
+    project_name = project.get("name") or "(unnamed project)"
+    cohort = (
+        project.get("cohort_name")
+        or project.get("entity_name")
+        or project.get("client_name")
+        or project.get("primary_url")
+    )
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    lines = [f"*Shared report viewed:* {project_name}"]
+    if cohort:
+        lines.append(f"• Cohort/entity: {cohort}")
+    lines.append(f"• Viewed at: {timestamp}")
+
+    httpx.post(webhook_url, json={"text": "\n".join(lines)}, timeout=5)
 
 
 # ── Utility ───────────────────────────────────────────────────────────────────
