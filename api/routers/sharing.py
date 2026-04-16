@@ -375,6 +375,7 @@ def _record_share_view(sb, project: dict, share_token: str, request: Request) ->
 
 def _notify_slack_share_view(project: dict) -> None:
     webhook_url = os.getenv("SLACK_SHARE_WEBHOOK_URL", "").strip()
+    logger.info("Slack webhook URL present: %s", bool(webhook_url))
     if not webhook_url:
         return
 
@@ -392,7 +393,11 @@ def _notify_slack_share_view(project: dict) -> None:
         lines.append(f"• Cohort/entity: {cohort}")
     lines.append(f"• Viewed at: {timestamp}")
 
-    httpx.post(webhook_url, json={"text": "\n".join(lines)}, timeout=5)
+    try:
+        resp = httpx.post(webhook_url, json={"text": "\n".join(lines)}, timeout=5)
+        logger.info("Slack webhook response status: %s", resp.status_code)
+    except Exception as e:
+        logger.error("Slack webhook error: %s", str(e))
 
 
 # ── Utility ───────────────────────────────────────────────────────────────────
