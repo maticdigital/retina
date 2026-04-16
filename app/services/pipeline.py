@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
 import sys
 import tempfile
@@ -174,7 +175,7 @@ async def run_analysis(
             automated_scores = {}
             for ls in report.retina_score.lens_scores:
                 automated_scores[ls.lens.value] = {
-                    "score": ls.score,
+                    "score": math.floor(ls.score + 0.5),
                     "breakdown": ls.breakdown,
                     "notes": ls.notes,
                     "is_automated": ls.is_automated,

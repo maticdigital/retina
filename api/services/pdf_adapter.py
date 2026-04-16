@@ -8,6 +8,7 @@ was written for the CLI pipeline.
 from __future__ import annotations
 
 import logging
+import math
 import os
 import tempfile
 from datetime import datetime, timezone
@@ -347,7 +348,7 @@ def build_analysis_run(project_id: str) -> dict:
         if isinstance(data, dict) and data.get("score") is not None:
             lens_scores.append(LensScore(
                 lens=lens_type,
-                score=float(data["score"]),
+                score=math.floor(float(data["score"]) + 0.5),
                 breakdown=data.get("breakdown", {}),
                 notes=data.get("notes"),
                 is_automated=True,
@@ -383,7 +384,7 @@ def build_analysis_run(project_id: str) -> dict:
 
         lens_scores.append(LensScore(
             lens=lens_type,
-            score=min(round(total, 2), 20.0),
+            score=min(math.floor(total + 0.5), 20),
             breakdown=breakdown,
             notes=notes,
             is_automated=False,

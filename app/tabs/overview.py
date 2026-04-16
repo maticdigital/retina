@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 from urllib.parse import urlparse
 
@@ -166,7 +167,8 @@ def _collect_lens_scores(
         auto = sd.get("automated_scores", {})
         for key in ["performance_technical_health", "seo_ai_visibility"]:
             data = auto.get(key, {})
-            scores[key] = data.get("score")
+            raw = data.get("score")
+            scores[key] = math.floor(raw + 0.5) if raw is not None else None
 
     # Analyst scores
     for key in ["brand_messaging", "experience_design", "conversion_strategy"]:
@@ -175,7 +177,7 @@ def _collect_lens_scores(
             if a.get("lens_name") == key and a.get("site_url") == site_url:
                 sub_scores = a.get("sub_scores", {})
                 if sub_scores:
-                    scores[key] = sum(float(v) for v in sub_scores.values())
+                    scores[key] = math.floor(sum(float(v) for v in sub_scores.values()) + 0.5)
                 break
 
     return scores

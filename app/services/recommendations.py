@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 from typing import Any
 
@@ -281,7 +282,7 @@ def generate_recommendations(project_id: str) -> dict[str, Any]:
     for lens_name, lens_key, expected_dims in analyst_lenses:
         row = analyst_by_lens.get(lens_name, {})
         sub = row.get("sub_scores", {})
-        total = _sum_sub_scores(sub)
+        total = math.floor(_sum_sub_scores(sub) + 0.5)
 
         # Get overall observations (user-edited > refined > raw)
         overall_obs = ""

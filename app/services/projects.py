@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -351,9 +352,9 @@ def recalculate_scores(project_id: str) -> dict[str, float]:
     perf = 0.0
     seo = 0.0
     if isinstance(auto_scores.get("performance_technical_health"), dict):
-        perf = float(auto_scores["performance_technical_health"].get("score") or 0)
+        perf = math.floor(float(auto_scores["performance_technical_health"].get("score") or 0) + 0.5)
     if isinstance(auto_scores.get("seo_ai_visibility"), dict):
-        seo = float(auto_scores["seo_ai_visibility"].get("score") or 0)
+        seo = math.floor(float(auto_scores["seo_ai_visibility"].get("score") or 0) + 0.5)
 
     # 2. Analyst scores from analyst_scores table (prefer primary URL rows)
     as_resp = (
@@ -368,7 +369,7 @@ def recalculate_scores(project_id: str) -> dict[str, float]:
         sub = row.get("sub_scores") or {}
         # Only overwrite if this is the first entry or matches primary URL
         if lens not in analyst_map or row.get("site_url") == primary_url:
-            analyst_map[lens] = round(_sum_sub_scores(sub), 2)
+            analyst_map[lens] = math.floor(_sum_sub_scores(sub) + 0.5)
 
     brand = analyst_map.get("brand_messaging", 0.0)
     experience = analyst_map.get("experience_design", 0.0)

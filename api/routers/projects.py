@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 from pydantic import BaseModel
@@ -758,7 +759,7 @@ def get_project_summary(project_id: str, user: CurrentUser):
         lens_scores.append({
             "lens_id": lid,
             "lens_name": LENS_MAP[lid],
-            "score": round(score, 2) if score is not None else None,
+            "score": math.floor(score + 0.5) if score is not None else None,
             "max_score": 20.0,
         })
 
@@ -1000,7 +1001,7 @@ def get_lens_detail(project_id: str, lens_id: str, user: CurrentUser):
         lens_scores_list.append({
             "lens_id": lid,
             "lens_name": LENS_MAP[lid],
-            "score": round(score, 2) if score is not None else None,
+            "score": math.floor(score + 0.5) if score is not None else None,
             "max_score": 20.0,
         })
 

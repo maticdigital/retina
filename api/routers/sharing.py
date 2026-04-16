@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import uuid
 import logging
@@ -224,7 +225,7 @@ def verify_shared_project(share_token: str, body: VerifyShareRequest, request: R
         lens_scores.append({
             "lens_id": lid,
             "lens_name": LENS_MAP[lid],
-            "score": round(score, 2) if score is not None else None,
+            "score": math.floor(score + 0.5) if score is not None else None,
             "max_score": 20.0,
         })
 
